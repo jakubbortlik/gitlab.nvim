@@ -166,8 +166,12 @@ M.create_comment_layout = function(opts)
     opts = {}
   end
 
-  local title = opts.discussion_id and "Reply" or "Comment"
-  local settings = opts.discussion_id ~= nil and state.settings.popup.reply or state.settings.popup.comment
+  local is_reply = opts.discussion_id ~= nil
+  local title = opts.unlinked and "Note" or (is_reply and "Reply" or "Comment")
+  local settings = opts.unlinked and state.settings.popup.note or (is_reply and state.settings.popup.reply or state.settings.popup.comment)
+
+  local layout_width = settings and settings.width or state.settings.popup.width
+  local layout_height = settings and settings.height or state.settings.popup.height
 
   M.current_win = vim.api.nvim_get_current_win()
   M.comment_popup = Popup(u.create_popup_state(title, settings))
@@ -183,8 +187,8 @@ M.create_comment_layout = function(opts)
     position = "50%",
     relative = "editor",
     size = {
-      width = "50%",
-      height = "55%",
+      width = layout_width,
+      height = layout_height,
     },
   }, internal_layout)
 
