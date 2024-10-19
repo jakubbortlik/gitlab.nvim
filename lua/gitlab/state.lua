@@ -162,6 +162,12 @@ M.settings = {
     tree_type = "simple",
     draft_mode = false,
   },
+  emojis = {
+    picker_preview = {
+      emoji = true,
+      shortname = false,
+    },
+  },
   create_mr = {
     target = nil,
     template_file = nil,

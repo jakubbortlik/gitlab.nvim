@@ -266,6 +266,12 @@ you call this function with no values the defaults will be used:
         winbar = nil -- Custom function to return winbar title, should return a string. Provided with WinbarTable (defined in annotations.lua)
                      -- If using lualine, please add "gitlab" to disabled file types, otherwise you will not see the winbar.
       },
+      emojis = {
+        picker_preview = { -- A simple description of the emoji is always shown. It can be accompanied by any of "emoji" and "shortname".
+          emoji = true, -- Show the emoji in the picker, e.g., 👍
+          shortname = false, -- Show a short name in the picker, e.g., ":thumbsup:"
+        },
+      },
       choose_merge_request = {
         open_reviewer = true, -- Open the reviewer window automatically after switching merge requests
       },
