@@ -154,6 +154,43 @@ local add_drafts_and_resolvable = function(
   return base_title
 end
 
+-- Returns true if the input string (after removing highlighting and alignment strings) is wider
+-- than the discussion split.
+---@return boolean
+local too_long = function(str)
+  local d = require("gitlab.actions.discussions")
+  return #str:gsub("%%#[^#]+#", ""):gsub("%%= ", "") > vim.fn.winwidth(d.split.winid)
+end
+
+-- Returns the input winbar string shortened to fit into the windo width.
+---@return string
+local adapt_to_winwidth = function(str)
+  if too_long(str) then
+    str = str:gsub("Inline ", "")
+  end
+  if too_long(str) then
+    str = str:gsub("just now", "now")
+    str = str:gsub("(%d+) minutes?", "%1m")
+    str = str:gsub("(%d+) hours?", "%1h")
+    str = str:gsub("(%d+) days?", "%1d")
+  end
+  if too_long(str) then
+    str = str:gsub("↓ by thread", "↓")
+    str = str:gsub("↑ by reply", "↑")
+  end
+  if too_long(str) then
+    str = str:gsub("(%d+%a) ago", "%1")
+  end
+  if too_long(str) then
+    str = str:gsub("Help", "H")
+  end
+  if too_long(str) then
+    str = str:gsub("Draft", "D")
+    str = str:gsub("Live", "L")
+  end
+  return str
+end
+
 ---@param t WinbarTable
 M.make_winbar = function(t)
   local discussions_focused = M.current_view_type == "discussions"
@@ -191,7 +228,7 @@ M.make_winbar = function(t)
   local end_section = "%="
   local updated = "%#Text#" .. t.updated
   local help = "%#Comment#Help: " .. (t.help_keymap and t.help_keymap:gsub(" ", "<space>") .. " " or "unmapped")
-  return string.format(
+  local result = string.format(
     " %s  %s  %s %s %s %s %s %s %s %s %s",
     discussion_text,
     separator,
@@ -205,6 +242,7 @@ M.make_winbar = function(t)
     separator,
     help
   )
+  return adapt_to_winwidth(result)
 end
 
 ---Returns a string for the winbar indicating the sort method
