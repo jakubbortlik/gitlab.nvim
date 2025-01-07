@@ -172,6 +172,27 @@ M.get_note_node = function(tree, node)
   end
 end
 
+---Gather all lines from immediate children that aren't note nodes
+---@param tree NuiTree
+---@return string[] List of individual note lines
+M.get_note_lines = function(tree)
+  local current_node = tree:get_node()
+  local note_node = M.get_note_node(tree, current_node)
+  if note_node == nil then
+    u.notify("Could not get note node", vim.log.levels.ERROR)
+    return {}
+  end
+  local lines = List.new(note_node:get_child_ids()):reduce(function(agg, child_id)
+    local child_node = tree:get_node(child_id)
+    if child_node ~= nil and not child_node:has_children() then
+      local line = tree:get_node(child_id).text
+      table.insert(agg, line)
+    end
+    return agg
+  end, {})
+  return lines
+end
+
 ---Takes a node and returns the line where the note is positioned in the new SHA. If
 ---the line is not in the new SHA, returns nil
 ---@param node NuiTree.Node

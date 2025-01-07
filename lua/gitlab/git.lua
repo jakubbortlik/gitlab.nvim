@@ -195,4 +195,15 @@ M.check_mr_in_good_condition = function()
   end
 end
 
+---Returns the contents of the file in a given revision
+---@param args table extra arguments for `git show`
+---@return string|nil, string|nil
+M.get_file_revision = function(args)
+  if args.revision == nil or args.file_name == nil then
+    return
+  end
+  local object = string.format("%s:%s", args.revision, args.file_name)
+  return run_system({ "git", "show", object })
+end
+
 return M

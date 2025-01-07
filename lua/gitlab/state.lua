@@ -123,6 +123,10 @@ M.settings = {
       toggle_unresolved_discussions = "U",
       refresh_data = "<C-R>",
       print_node = "<leader>p",
+      preview_suggestion = "sp",
+    },
+    suggestion_preview = {
+      quit = "q",
     },
     reviewer = {
       disable_all = false,
