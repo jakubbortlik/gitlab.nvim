@@ -10,6 +10,14 @@ local u = require("gitlab.utils")
 
 local M = {}
 
+local set_keymaps = function(bufnr)
+  if keymaps.suggestion_preview.quit then
+    vim.keymap.set("n", keymaps.suggestion_preview.quit, function()
+      vim.cmd.tabclose()
+    end, { buffer = bufnr, desc = "Close preview tab", nowait = keymaps.suggestion_preview.quit_nowait })
+  end
+end
+
 M.show_preview = function(opts)
   local note_lines = common.get_note_lines(opts.tree)
   local suggestions = M.get_suggestions(note_lines)
@@ -62,12 +70,6 @@ M.show_preview = function(opts)
     vim.bo.bufhidden = 'wipe'
     vim.bo.filetype = buf_filetype
 
-    if keymaps.suggestion_preview.quit then
-      vim.keymap.set("n", keymaps.suggestion_preview.quit, function()
-        vim.cmd.tabclose()
-      end, { buffer = head_buf, desc = "Close preview tab", nowait = keymaps.suggestion_preview.quit_nowait })
-    end
-
     local suggestion_buf = vim.api.nvim_create_buf(true, true)
     vim.cmd("vsplit")
     vim.api.nvim_set_current_buf(suggestion_buf)
@@ -76,11 +78,7 @@ M.show_preview = function(opts)
     vim.bo.bufhidden = 'wipe'
     vim.bo.filetype = buf_filetype
 
-    if keymaps.suggestion_preview.quit then
-      vim.keymap.set("n", keymaps.suggestion_preview.quit, function()
-        vim.cmd.tabclose()
-      end, { buffer = suggestion_buf, desc = "Close preview tab", nowait = keymaps.suggestion_preview.quit_nowait })
-    end
+    set_keymaps(suggestion_buf)
 
     local end_line = (opts.node.new_line or opts.node.range["end"].new_line) + suggestion.end_line
     local start_line = end_line - suggestion.start_line - 1
