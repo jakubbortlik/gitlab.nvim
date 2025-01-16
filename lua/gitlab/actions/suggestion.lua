@@ -2,8 +2,10 @@
 --- The data required to make the API calls are drawn from the discussion nodes.
 
 local common = require("gitlab.actions.common")
+local diffview_lib = require("diffview.lib")
 local git = require("gitlab.git")
 local keymaps = require("gitlab.state").settings.keymaps
+local List = require("gitlab.utils.list")
 local u = require("gitlab.utils")
 
 local M = {}
@@ -26,14 +28,39 @@ M.show_preview = function(opts)
     table.insert(lines, line)
   end
 
-  for _, suggestion in ipairs(suggestions) do
-    vim.api.nvim_cmd({ cmd = "tabnew" }, {})
+  local view = diffview_lib.get_current_view()
+  if view == nil then
+    u.notify("Could not find Diffview view", vim.log.levels.ERROR)
+    return
+  end
 
-    local head_buf = vim.api.nvim_create_buf(false, true)
+  local files = view.panel:ordered_file_list()
+  local file_name = List.new(files):find(function(file)
+    return file.path == opts.node.file_name
+  end).path
+
+  if file_name == nil then
+    u.notify("File %s not found.", file_name)
+    return
+  end
+
+  for _, suggestion in ipairs(suggestions) do
+    -- -- If the HEAD version is different from the opts.node.head_sha version, use something like
+    -- -- this instead:
+    -- local head_buf = vim.api.nvim_create_buf(false, true)
+    -- vim.api.nvim_buf_set_lines(head_buf, 0, -1, false, lines)
+    -- local tmp_path = vim.fn.tempname()
+    -- vim.api.nvim_buf_set_name(h, tmp_path .. '/' .. file_name)
+    -- vim.cmd.filetype("detect")
+
+    vim.api.nvim_cmd({ cmd = "tabnew", args = {file_name} }, {})
+    local head_buf = vim.api.nvim_get_current_buf()
+    local buf_filetype = vim.api.nvim_get_option_value('filetype', {buf = head_buf})
     vim.api.nvim_set_current_buf(head_buf)
-    vim.api.nvim_buf_set_lines(head_buf, 0, -1, false, lines)
+
     vim.bo.buftype = 'nofile'
     vim.bo.bufhidden = 'wipe'
+    vim.bo.filetype = buf_filetype
 
     if keymaps.suggestion_preview.quit then
       vim.keymap.set("n", keymaps.suggestion_preview.quit, function()
@@ -47,6 +74,7 @@ M.show_preview = function(opts)
     vim.api.nvim_buf_set_lines(suggestion_buf, 0, -1, false, lines)
     vim.bo.buftype = 'nofile'
     vim.bo.bufhidden = 'wipe'
+    vim.bo.filetype = buf_filetype
 
     if keymaps.suggestion_preview.quit then
       vim.keymap.set("n", keymaps.suggestion_preview.quit, function()
