@@ -20,6 +20,7 @@ end
 
 M.show_preview = function(opts)
   local note_lines = common.get_note_lines(opts.tree)
+  local root_node = common.get_root_node(opts.tree, opts.node)
   local suggestions = M.get_suggestions(note_lines)
   if #suggestions == 0 then
     u.notify("Note doesn't contain any suggestion.", vim.log.levels.WARN)
@@ -34,18 +35,27 @@ M.show_preview = function(opts)
     -- patches? Maybe the local file should be nomodifiable and only the note text should be
     -- editable and some CursorHold, CursorMoved, CursorMovedI, InsertCharPre autocommands should be
     -- used to apply the suggestions on the local file.
-    u.notify("Previewing a draft suggestion.")
-    opts.node.head_sha = "HEAD"
+    u.notify("Previewing a draft suggestion, showing diff against current HEAD.")
+    root_node.head_sha = "HEAD"
   end
 
-  if not git.revision_exists(opts.node.head_sha) then
-    u.notify(string.format("Revision %s for which the comment was made does not exist", opts.node.head_sha), vim.log.levels.WARN)
+  if not git.revision_exists(root_node.head_sha) then
+    u.notify(string.format("Revision %s for which the comment was made does not exist", root_node.head_sha), vim.log.levels.WARN)
     return
   end
 
-  local lines = {}
-  for _, line in ipairs(vim.fn.split(text, "\n")) do
-    table.insert(lines, line)
+  local original_head_text = git.get_file_revision({ file_name = opts.node.file_name, revision = root_node.head_sha })
+  local head_text = git.get_file_revision({ file_name = opts.node.file_name, revision = "HEAD" })
+
+  -- The the original head_sha doesn't contain the file, the branch was possibly rebased, and the
+  -- original head_sha could not been found. In that case `git.get_file_revision` should have logged
+  -- an error so we just return.
+  if original_head_text == nil then
+    u.notify(
+      string.format("File %s doesn't contain any text in revision %s for which the comment was made", opts.node.file_name, root_node.head_sha),
+      vim.log.levels.WARN
+    )
+    return
   end
 
   local view = diffview_lib.get_current_view()
