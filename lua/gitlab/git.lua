@@ -206,4 +206,18 @@ M.get_file_revision = function(args)
   return run_system({ "git", "show", object })
 end
 
+---Returns true if the given revision exists, false otherwise
+---@param revision string The revision to check
+---@return boolean
+M.revision_exists = function(revision)
+  local u = require("gitlab.utils")
+  if revision == nil then
+    u.notify("Invalid nil revision", vim.log.levels.ERROR)
+    return false
+  end
+  local object = string.format("%s", revision)
+  local result = run_system({ "git", "rev-parse", "--verify", "--quiet", "--end-of-options", object })
+  return result ~= nil
+end
+
 return M

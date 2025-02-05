@@ -26,8 +26,20 @@ M.show_preview = function(opts)
     return
   end
 
-  local text = git.get_file_revision({ file_name = opts.node.file_name, revision = opts.node.head_sha })
-  if text == nil then
+  if opts.node.is_draft then
+    -- We're probably reviewing a draft suggestion in order to modify/test it, so we probably want
+    -- the suggestion to be applied to the local version of the file, so that we get LSP
+    -- functionality on it, we can run tests etc.
+    -- How should multiple suggestions be dealt with in that case? Applying and discarding the
+    -- patches? Maybe the local file should be nomodifiable and only the note text should be
+    -- editable and some CursorHold, CursorMoved, CursorMovedI, InsertCharPre autocommands should be
+    -- used to apply the suggestions on the local file.
+    u.notify("Previewing a draft suggestion.")
+    opts.node.head_sha = "HEAD"
+  end
+
+  if not git.revision_exists(opts.node.head_sha) then
+    u.notify(string.format("Revision %s for which the comment was made does not exist", opts.node.head_sha), vim.log.levels.WARN)
     return
   end
 
