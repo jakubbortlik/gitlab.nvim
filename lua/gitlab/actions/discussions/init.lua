@@ -243,10 +243,6 @@ end
 
 -- Preview the suggestion(s) in the current discussion tree node
 M.preview_suggestion = function(tree)
-  if M.is_draft_note(tree) then
-    u.notify("Gitlab does not support previewing draft notes", vim.log.levels.WARN)
-    return
-  end
   local suggestion = require("gitlab.actions.suggestion")
   suggestion.show_preview({
     node = tree:get_node(),
