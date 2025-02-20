@@ -83,55 +83,61 @@ func (a discussionsListerService) ServeHTTP(w http.ResponseWriter, r *http.Reque
 
 	request := r.Context().Value(payload(payload("payload"))).(*DiscussionsRequest)
 
-	mergeRequestDiscussionOptions := gitlab.ListMergeRequestDiscussionsOptions{
-		Page:    1,
-		PerPage: 250,
-	}
-
-	discussions, res, err := a.client.ListMergeRequestDiscussions(a.projectInfo.ProjectId, a.projectInfo.MergeId, &mergeRequestDiscussionOptions)
-
-	if err != nil {
-		handleError(w, err, "Could not list discussions", http.StatusInternalServerError)
-		return
-	}
-
-	if res.StatusCode >= 300 {
-		handleError(w, GenericError{r.URL.Path}, "Could not list discussions", res.StatusCode)
-		return
-	}
-
 	/* Filter out any discussions started by a blacklisted user
 	and system discussions, then return them sorted by created date */
 	var unlinkedDiscussions []*gitlab.Discussion
 	var linkedDiscussions []*gitlab.Discussion
+	allEmojis := make(map[int][]*gitlab.AwardEmoji)
 
-	for _, discussion := range discussions {
-		if len(discussion.Notes) == 0 || Contains(request.Blacklist, discussion.Notes[0].Author.Username) {
-			continue
+	for i := 1; i <= 3; i++ {
+		mergeRequestDiscussionOptions := gitlab.ListMergeRequestDiscussionsOptions{
+			Page:    i,
+			PerPage: 100,
 		}
-		for _, note := range discussion.Notes {
-			if note.Type == gitlab.NoteTypeValue("DiffNote") {
-				linkedDiscussions = append(linkedDiscussions, discussion)
-				break
-			} else if !note.System && note.Position == nil {
-				unlinkedDiscussions = append(unlinkedDiscussions, discussion)
-				break
+
+		discussions, res, err := a.client.ListMergeRequestDiscussions(a.projectInfo.ProjectId, a.projectInfo.MergeId, &mergeRequestDiscussionOptions)
+
+		if err != nil {
+			handleError(w, err, "Could not list discussions", http.StatusInternalServerError)
+			return
+		}
+
+		if res.StatusCode >= 300 {
+			handleError(w, GenericError{r.URL.Path}, "Could not list discussions", res.StatusCode)
+			return
+		}
+
+		for _, discussion := range discussions {
+			if len(discussion.Notes) == 0 || Contains(request.Blacklist, discussion.Notes[0].Author.Username) {
+				continue
+			}
+			for _, note := range discussion.Notes {
+				if note.Type == gitlab.NoteTypeValue("DiffNote") {
+					linkedDiscussions = append(linkedDiscussions, discussion)
+					break
+				} else if !note.System && note.Position == nil {
+					unlinkedDiscussions = append(unlinkedDiscussions, discussion)
+					break
+				}
 			}
 		}
-	}
 
-	/* Collect IDs in order to fetch emojis */
-	var noteIds []int
-	for _, discussion := range discussions {
-		for _, note := range discussion.Notes {
-			noteIds = append(noteIds, note.ID)
+		/* Collect IDs in order to fetch emojis */
+		var noteIds []int
+		for _, discussion := range discussions {
+			for _, note := range discussion.Notes {
+				noteIds = append(noteIds, note.ID)
+			}
 		}
-	}
 
-	emojis, err := a.fetchEmojisForNotesAndComments(noteIds)
-	if err != nil {
-		handleError(w, err, "Could not fetch emojis", http.StatusInternalServerError)
-		return
+		emojisOnPage, err := a.fetchEmojisForNotesAndComments(noteIds)
+		if err != nil {
+			handleError(w, err, "Could not fetch emojis", http.StatusInternalServerError)
+			return
+		}
+		for noteID, emojis := range emojisOnPage {
+			allEmojis[noteID] = emojis
+		}
 	}
 
 	sortedLinkedDiscussions := SortableDiscussions{
@@ -151,10 +157,10 @@ func (a discussionsListerService) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		SuccessResponse:     SuccessResponse{Message: "Discussions retrieved"},
 		Discussions:         linkedDiscussions,
 		UnlinkedDiscussions: unlinkedDiscussions,
-		Emojis:              emojis,
+		Emojis:              allEmojis,
 	}
 
-	err = json.NewEncoder(w).Encode(response)
+	err := json.NewEncoder(w).Encode(response)
 	if err != nil {
 		handleError(w, err, "Could not encode response", http.StatusInternalServerError)
 	}
