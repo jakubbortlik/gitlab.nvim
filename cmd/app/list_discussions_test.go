@@ -92,9 +92,16 @@ func TestListDiscussions(t *testing.T) {
 		)
 		data := getDiscussionsList(t, svc, request)
 		assert(t, data.Message, "Discussions retrieved")
+		assert(t, len(data.Discussions), 9)
 		assert(t, data.Discussions[0].Notes[0].Author.Username, "hcramer4") /* Sorting applied */
-		assert(t, data.Discussions[1].Notes[0].Author.Username, "hcramer0")
-		assert(t, data.Discussions[2].Notes[0].Author.Username, "hcramer2")
+		assert(t, data.Discussions[1].Notes[0].Author.Username, "hcramer4")
+		assert(t, data.Discussions[2].Notes[0].Author.Username, "hcramer4")
+		assert(t, data.Discussions[3].Notes[0].Author.Username, "hcramer0")
+		assert(t, data.Discussions[4].Notes[0].Author.Username, "hcramer0")
+		assert(t, data.Discussions[5].Notes[0].Author.Username, "hcramer0")
+		assert(t, data.Discussions[6].Notes[0].Author.Username, "hcramer2")
+		assert(t, data.Discussions[7].Notes[0].Author.Username, "hcramer2")
+		assert(t, data.Discussions[8].Notes[0].Author.Username, "hcramer2")
 	})
 
 	t.Run("Returns discussions sorted by original comment", func(t *testing.T) {
@@ -107,9 +114,16 @@ func TestListDiscussions(t *testing.T) {
 		)
 		data := getDiscussionsList(t, svc, request)
 		assert(t, data.Message, "Discussions retrieved")
+		assert(t, len(data.Discussions), 9)
 		assert(t, data.Discussions[0].Notes[0].Author.Username, "hcramer0") /* Sorting applied */
-		assert(t, data.Discussions[1].Notes[0].Author.Username, "hcramer4")
-		assert(t, data.Discussions[2].Notes[0].Author.Username, "hcramer2")
+		assert(t, data.Discussions[1].Notes[0].Author.Username, "hcramer0")
+		assert(t, data.Discussions[2].Notes[0].Author.Username, "hcramer0")
+		assert(t, data.Discussions[3].Notes[0].Author.Username, "hcramer4")
+		assert(t, data.Discussions[4].Notes[0].Author.Username, "hcramer4")
+		assert(t, data.Discussions[5].Notes[0].Author.Username, "hcramer4")
+		assert(t, data.Discussions[6].Notes[0].Author.Username, "hcramer2")
+		assert(t, data.Discussions[7].Notes[0].Author.Username, "hcramer2")
+		assert(t, data.Discussions[8].Notes[0].Author.Username, "hcramer2")
 	})
 
 	t.Run("Uses blacklist to filter unwanted authors", func(t *testing.T) {
@@ -122,9 +136,13 @@ func TestListDiscussions(t *testing.T) {
 		)
 		data := getDiscussionsList(t, svc, request)
 		assert(t, data.SuccessResponse.Message, "Discussions retrieved")
-		assert(t, len(data.Discussions), 2)
+		assert(t, len(data.Discussions), 6)
 		assert(t, data.Discussions[0].Notes[0].Author.Username, "hcramer4")
-		assert(t, data.Discussions[1].Notes[0].Author.Username, "hcramer2")
+		assert(t, data.Discussions[1].Notes[0].Author.Username, "hcramer4")
+		assert(t, data.Discussions[2].Notes[0].Author.Username, "hcramer4")
+		assert(t, data.Discussions[3].Notes[0].Author.Username, "hcramer2")
+		assert(t, data.Discussions[4].Notes[0].Author.Username, "hcramer2")
+		assert(t, data.Discussions[5].Notes[0].Author.Username, "hcramer2")
 	})
 	t.Run("Handles errors from Gitlab client", func(t *testing.T) {
 		request := makeRequest(t, http.MethodPost, "/mr/discussions/list", DiscussionsRequest{Blacklist: []string{}})
