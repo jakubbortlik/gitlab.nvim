@@ -270,7 +270,7 @@ M.get_ahead_behind = function(ahead, behind)
 end
 
 ---Toggles the current view type (or sets it to `override`) and then updates the view.
----@param override "discussions"|"notes" Defines the view type to select.
+---@param override? "discussions"|"notes" Defines the view type to select.
 M.switch_view_type = function(override)
   if override then
     M.current_view_type = override
