@@ -12,7 +12,6 @@ local state = require("gitlab.state")
 local reviewer = require("gitlab.reviewer")
 local common = require("gitlab.actions.common")
 local List = require("gitlab.utils.list")
-local tree_utils = require("gitlab.actions.discussions.tree")
 local discussions_tree = require("gitlab.actions.discussions.tree")
 local draft_notes = require("gitlab.actions.draft_notes")
 local signs = require("gitlab.indicators.signs")
@@ -442,12 +441,12 @@ M.rebuild_discussion_tree = function()
   local discussion_tree = NuiTree({
     nodes = all_nodes,
     bufnr = M.linked_bufnr,
-    prepare_node = tree_utils.nui_tree_prepare_node,
+    prepare_node = discussions_tree.nui_tree_prepare_node,
   })
 
   -- Re-expand already expanded nodes
   for _, id in ipairs(expanded_node_ids) do
-    tree_utils.open_node_by_id(discussion_tree, id)
+    discussions_tree.open_node_by_id(discussion_tree, id)
   end
   discussion_tree:render()
   discussions_tree.restore_cursor_position(M.split.winid, discussion_tree, current_node)
@@ -481,12 +480,12 @@ M.rebuild_unlinked_discussion_tree = function()
   local unlinked_discussion_tree = NuiTree({
     nodes = all_nodes,
     bufnr = M.unlinked_bufnr,
-    prepare_node = tree_utils.nui_tree_prepare_node,
+    prepare_node = discussions_tree.nui_tree_prepare_node,
   })
 
   -- Re-expand already expanded nodes
   for _, id in ipairs(expanded_node_ids) do
-    tree_utils.open_node_by_id(unlinked_discussion_tree, id)
+    discussions_tree.open_node_by_id(unlinked_discussion_tree, id)
   end
   unlinked_discussion_tree:render()
   discussions_tree.restore_cursor_position(M.split.winid, unlinked_discussion_tree, current_node)
@@ -669,13 +668,13 @@ M.set_tree_keymaps = function(tree, bufnr, unlinked)
 
   if keymaps.discussion_tree.toggle_node then
     vim.keymap.set("n", keymaps.discussion_tree.toggle_node, function()
-      tree_utils.toggle_node(tree)
+      discussions_tree.toggle_node(tree)
     end, { buffer = bufnr, desc = "Toggle node", nowait = keymaps.discussion_tree.toggle_node_nowait })
   end
 
   if keymaps.discussion_tree.toggle_all_discussions then
     vim.keymap.set("n", keymaps.discussion_tree.toggle_all_discussions, function()
-      tree_utils.toggle_nodes(M.split.winid, tree, unlinked, {
+      discussions_tree.toggle_nodes(M.split.winid, tree, unlinked, {
         toggle_resolved = true,
         toggle_unresolved = true,
         keep_current_open = state.settings.discussion_tree.keep_current_open,
@@ -689,7 +688,7 @@ M.set_tree_keymaps = function(tree, bufnr, unlinked)
 
   if keymaps.discussion_tree.toggle_resolved_discussions then
     vim.keymap.set("n", keymaps.discussion_tree.toggle_resolved_discussions, function()
-      tree_utils.toggle_nodes(M.split.winid, tree, unlinked, {
+      discussions_tree.toggle_nodes(M.split.winid, tree, unlinked, {
         toggle_resolved = true,
         toggle_unresolved = false,
         keep_current_open = state.settings.discussion_tree.keep_current_open,
@@ -703,7 +702,7 @@ M.set_tree_keymaps = function(tree, bufnr, unlinked)
 
   if keymaps.discussion_tree.toggle_unresolved_discussions then
     vim.keymap.set("n", keymaps.discussion_tree.toggle_unresolved_discussions, function()
-      tree_utils.toggle_nodes(M.split.winid, tree, unlinked, {
+      discussions_tree.toggle_nodes(M.split.winid, tree, unlinked, {
         toggle_resolved = false,
         toggle_unresolved = true,
         keep_current_open = state.settings.discussion_tree.keep_current_open,
