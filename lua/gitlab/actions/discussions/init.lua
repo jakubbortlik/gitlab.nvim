@@ -788,6 +788,49 @@ M.set_tree_keymaps = function(tree, bufnr, unlinked)
     })
   end
 
+  if keymaps.discussion_tree.next_diffview_entry then
+    vim.keymap.set("n", keymaps.discussion_tree.next_diffview_entry, require("diffview.actions").select_next_entry, {
+      buffer = bufnr,
+      desc = "Open diff for next file",
+      nowait = keymaps.discussion_tree.next_diffview_entry_nowait,
+    })
+  end
+
+  if keymaps.discussion_tree.prev_diffview_entry then
+    vim.keymap.set("n", keymaps.discussion_tree.prev_diffview_entry, require("diffview.actions").select_prev_entry, {
+      buffer = bufnr,
+      desc = "Open diff for previous file",
+      nowait = keymaps.discussion_tree.prev_diffview_entry_nowait,
+    })
+  end
+
+  if keymaps.discussion_tree.focus_diffview_files then
+    vim.keymap.set("n", keymaps.discussion_tree.focus_diffview_files, require("diffview.actions").focus_files, {
+      buffer = bufnr,
+      desc = "Bring focus to diffview file panel",
+      nowait = keymaps.discussion_tree.focus_diffview_files_nowait,
+    })
+  end
+
+  if keymaps.discussion_tree.focus_new_file then
+    vim.keymap.set("n", keymaps.discussion_tree.focus_new_file, require("diffview.actions").focus_entry, {
+      buffer = bufnr,
+      desc = "Bring focus to NEW file",
+      nowait = keymaps.discussion_tree.focus_new_file_nowait,
+    })
+  end
+
+  if keymaps.discussion_tree.focus_old_file then
+    vim.keymap.set("n", keymaps.discussion_tree.focus_old_file, function()
+      require("diffview.actions").focus_entry()
+      vim.cmd.wincmd("W")
+    end, {
+      buffer = bufnr,
+      desc = "Bring focus to OLD file",
+      nowait = keymaps.discussion_tree.focus_old_file_nowait,
+    })
+  end
+
   emoji.init_popup(tree, bufnr)
 end
 

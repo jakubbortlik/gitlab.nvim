@@ -124,6 +124,11 @@ M.settings = {
       toggle_resolved_discussions = "R",
       toggle_unresolved_discussions = "U",
       refresh_data = "<C-R>",
+      next_diffview_entry = "<Tab>",
+      prev_diffview_entry = "<S-Tab>",
+      focus_diffview_files = "<leader>e",
+      focus_new_file = "gn",
+      focus_old_file = "go",
       print_node = "<leader>p",
     },
     reviewer = {

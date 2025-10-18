@@ -222,6 +222,11 @@ you call this function with no values the defaults will be used:
           toggle_resolved_discussions = "R", -- Open or close all resolved discussions
           toggle_unresolved_discussions = "U", -- Open or close all unresolved discussions
           refresh_data = "<C-R>", -- Refresh the data in the view by hitting Gitlab's APIs again
+          next_diffview_entry = "<Tab>", -- Open diff for the next file
+          prev_diffview_entry = "<S-Tab>", -- Open diff for the previous file
+          focus_diffview_files = "<leader>e", -- Bring focus to diffview file panel
+          focus_new_file = "gn", -- Bring focus to NEW file
+          focus_old_file = "go", -- Bring focus to OLD file
           print_node = "<leader>p", -- Print the current node (for debugging)
         },
         reviewer = {
