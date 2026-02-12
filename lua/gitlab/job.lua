@@ -6,7 +6,12 @@ local M = {}
 
 M.run_job = function(endpoint, method, body, callback, on_error_callback)
   local state = require("gitlab.state")
-  local args = { "-s", "-X", (method or "POST"), string.format("localhost:%s", state.settings.port) .. endpoint }
+  local port = state.settings.server and state.settings.server.port
+  if state.settings.port ~= nil then
+    port = state.settings.port
+    u.notify("The setting `port` has been renamed `server.port`", vim.log.levels.WARN)
+  end
+  local args = { "-s", "-X", (method or "POST"), string.format("localhost:%s%s", port, endpoint) }
 
   if body ~= nil then
     local encoded_body = vim.json.encode(body)
