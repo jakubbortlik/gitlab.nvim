@@ -123,7 +123,7 @@ func (a discussionsListerService) ServeHTTP(w http.ResponseWriter, r *http.Reque
 
 	/* Collect IDs in order to fetch emojis */
 	var noteIds []int64
-	for _, discussion := range discussions {
+	for _, discussion := range slices.Concat(linkedDiscussions, unlinkedDiscussions) {
 		for _, note := range discussion.Notes {
 			noteIds = append(noteIds, note.ID)
 		}
