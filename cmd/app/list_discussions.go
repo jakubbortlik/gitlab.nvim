@@ -2,6 +2,7 @@ package app
 
 import (
 	"net/http"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -90,15 +91,13 @@ func (a discussionsListerService) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		},
 	}
 
-	discussions, res, err := a.client.ListMergeRequestDiscussions(a.projectInfo.ProjectId, a.projectInfo.MergeId, &mergeRequestDiscussionOptions)
+	it, hasErr := gitlab.Scan(func(p gitlab.PaginationOptionFunc) ([]*gitlab.Discussion, *gitlab.Response, error) {
+		return a.client.ListMergeRequestDiscussions(a.projectInfo.ProjectId, a.projectInfo.MergeId, &mergeRequestDiscussionOptions, p)
+	})
+	discussions := slices.Collect(it)
 
-	if err != nil {
+	if err := hasErr(); err != nil {
 		handleError(w, err, "Could not list discussions", http.StatusInternalServerError)
-		return
-	}
-
-	if res.StatusCode >= 300 {
-		handleError(w, GenericError{r.URL.Path}, "Could not list discussions", res.StatusCode)
 		return
 	}
 
