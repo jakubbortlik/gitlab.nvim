@@ -393,7 +393,7 @@ M.set_global_keymaps = function()
 
   if keymaps.global.set_auto_merge then
     vim.keymap.set("n", keymaps.global.set_auto_merge, function()
-      require("gitlab").merge({auto_merge = true})
+      require("gitlab").merge({ auto_merge = true })
     end, { desc = "Set MR to auto-merge", nowait = keymaps.global.set_auto_merge_nowait })
   end
 
