@@ -214,6 +214,7 @@ M.settings = {
       "pipeline",
       "branch",
       "target_branch",
+      "auto_merge",
       "delete_branch",
       "squash",
       "labels",

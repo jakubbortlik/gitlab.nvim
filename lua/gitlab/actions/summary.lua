@@ -124,6 +124,7 @@ M.build_info_lines = function()
     branch = { title = "Branch", content = info.source_branch },
     labels = { title = "Labels", content = table.concat(info.labels, ", ") },
     target_branch = { title = "Target Branch", content = info.target_branch },
+    auto_merge = { title = "Auto-merge", content = (info.merge_when_pipeline_succeeds and "Yes" or "No") },
     delete_branch = {
       title = "Delete Source Branch",
       content = (info.force_remove_source_branch and "Yes" or "No"),
@@ -271,7 +272,7 @@ M.color_details = function(bufnr)
           vim.api.nvim_buf_add_highlight(bufnr, details_namespace, ("label" .. j), i - 1, start_idx - 1, end_idx)
         end
       end
-    elseif v == "delete_branch" or v == "squash" or v == "draft" or v == "conflicts" then
+    elseif v == "auto_merge" or v == "delete_branch" or v == "squash" or v == "draft" or v == "conflicts" then
       local line_content = u.get_line_content(bufnr, i)
       local start_idx, end_idx = line_content:find("%S-$")
       if start_idx ~= nil and end_idx ~= nil then
