@@ -179,6 +179,7 @@ you call this function with no values the defaults will be used:
           approve = "glA", -- Approve MR
           revoke = "glR", -- Revoke MR approval
           merge = "glM", -- Merge the feature branch to the target branch and close MR
+          set_auto_merge = "glm", -- Set MR to merge automatically when the pipeline succeeds
           create_mr = "glC", -- Create a new MR for currently checked-out feature branch
           choose_merge_request = "glc", -- Chose MR for review (if necessary check out the feature branch)
           start_review = "glS", -- Start review for the currently checked-out branch

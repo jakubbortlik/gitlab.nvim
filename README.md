@@ -140,6 +140,7 @@ glrd	Delete reviewer
 glA	Approve MR
 glR	Revoke MR approval
 glM	Merge the feature branch to the target branch and close MR
+glm	Set MR to merge automatically when the pipeline succeeds
 glC	Create a new MR for currently checked-out feature branch
 glc	Chose MR for review
 glS	Start review for the currently checked-out branch
