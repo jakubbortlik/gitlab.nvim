@@ -81,6 +81,7 @@ M.settings = {
       approve = "glA",
       revoke = "glR",
       merge = "glM",
+      set_auto_merge = "glm",
       create_mr = "glC",
       choose_merge_request = "glc",
       start_review = "glS",
@@ -388,6 +389,12 @@ M.set_global_keymaps = function()
     vim.keymap.set("n", keymaps.global.merge, function()
       require("gitlab").merge()
     end, { desc = "Merge MR", nowait = keymaps.global.merge_nowait })
+  end
+
+  if keymaps.global.set_auto_merge then
+    vim.keymap.set("n", keymaps.global.set_auto_merge, function()
+      require("gitlab").merge({auto_merge = true})
+    end, { desc = "Set MR to auto-merge", nowait = keymaps.global.set_auto_merge_nowait })
   end
 
   if keymaps.global.copy_mr_url then
