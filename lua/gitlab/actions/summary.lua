@@ -264,7 +264,7 @@ M.color_details = function(bufnr)
     if v == "labels" then
       local line_content = u.get_line_content(bufnr, i)
       for j, label in ipairs(state.LABELS) do
-        local start_idx, end_idx = line_content:find(label.Name)
+        local start_idx, end_idx = line_content:find(label.Name, 1, true)
         if start_idx ~= nil and end_idx ~= nil then
           vim.cmd("highlight " .. "label" .. j .. " guifg=white")
           vim.api.nvim_set_hl(0, ("label" .. j), { fg = label.Color })
