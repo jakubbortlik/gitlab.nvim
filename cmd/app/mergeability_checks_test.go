@@ -67,7 +67,8 @@ func TestMergeabilityChecksHandler(t *testing.T) {
 		svc.ServeHTTP(res, request)
 
 		var data MergeabilityChecksResponse
-		json.Unmarshal(res.Body.Bytes(), &data)
+		err := json.Unmarshal(res.Body.Bytes(), &data)
+		assert(t, err, nil)
 
 		assert(t, data.Message, "Mergeability checks retrieved")
 		assert(t, len(data.MergeabilityChecks), 2)
@@ -99,7 +100,8 @@ func TestMergeabilityChecksHandler(t *testing.T) {
 		svc.ServeHTTP(res, request)
 
 		var data MergeabilityChecksResponse
-		json.Unmarshal(res.Body.Bytes(), &data)
+		err := json.Unmarshal(res.Body.Bytes(), &data)
+		assert(t, err, nil)
 
 		assert(t, data.Message, "Mergeability checks retrieved")
 		assert(t, len(data.MergeabilityChecks), 0)
