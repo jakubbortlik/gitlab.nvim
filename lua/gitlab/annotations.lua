@@ -159,6 +159,7 @@
 ---@field discussion_tree? DiscussionSettings -- Settings for the popup windows
 ---@field choose_merge_request? ChooseMergeRequestSettings -- Default settings when choosing a merge request
 ---@field info? InfoSettings -- Settings for the "info" or "summary" view
+---@field mergeability_checks? MergeabilityChecksSettings -- Settings for the mergeability checks in the "summary" view
 ---@field discussion_signs? DiscussionSigns -- The settings for discussion signs/diagnostics
 ---@field pipeline? PipelineSettings -- The settings for the pipeline popup
 ---@field create_mr? CreateMrSettings -- The settings when creating an MR
@@ -252,7 +253,37 @@
 
 ---@class InfoSettings
 ---@field horizontal? boolean -- Display metadata to the left of the summary rather than underneath
----@field fields? ("author" | "created_at" | "updated_at" | "merge_status" | "draft" | "conflicts" | "assignees" | "reviewers" | "pipeline" | "branch" | "target_branch" | "delete_branch" | "squash" | "labels")[]
+---@field fields? ("author" | "created_at" | "updated_at" | "merge_status" | "draft" | "conflicts" | "assignees" | "reviewers" | "pipeline" | "branch" | "target_branch" | "delete_branch" | "squash" | "labels" | "mergeability_checks")[]
+
+---@class MergeabilityChecksSettings
+---@field statuses MergeabilityStatuses
+---@field checks MergeabilityChecks
+
+---@class MergeabilityStatuses
+---@field SUCCESS string|false
+---@field CHECKING string|false
+---@field FAILED string|false
+---@field WARNING string|false
+---@field INACTIVE string|false
+
+---@class MergeabilityChecks
+---@field CI_MUST_PASS string|false
+---@field COMMITS_STATUS string|false
+---@field CONFLICT string|false
+---@field DISCUSSIONS_NOT_RESOLVED string|false
+---@field DRAFT_STATUS string|false
+---@field JIRA_ASSOCIATION_MISSING string|false
+---@field LOCKED_LFS_FILES string|false
+---@field LOCKED_PATHS string|false
+---@field MERGE_REQUEST_BLOCKED string|false
+---@field MERGE_TIME string|false
+---@field NEED_REBASE string|false
+---@field NOT_APPROVED string|false
+---@field NOT_OPEN string|false
+---@field REQUESTED_CHANGES string|false
+---@field SECURITY_POLICY_VIOLATIONS string|false
+---@field STATUS_CHECKS_MUST_PASS string|false
+---@field TITLE_REGEX string|false
 
 ---@class DiscussionSettings: table
 ---@field expanders? ExpanderOpts -- Customize the expander icons in the discussion tree

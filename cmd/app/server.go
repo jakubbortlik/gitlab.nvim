@@ -134,6 +134,11 @@ func CreateRouter(gitlabClient *Client, projectInfo *ProjectInfo, s *shutdownSer
 		withMr(d, gitlabClient),
 		withMethodCheck(http.MethodGet),
 	))
+	m.HandleFunc("/mr/info/mergeability", middleware(
+		mergeabilityChecksService{d, gitlabClient},
+		withMr(d, gitlabClient),
+		withMethodCheck(http.MethodGet),
+	))
 	m.HandleFunc("/mr/assignee", middleware(
 		assigneesService{d, gitlabClient},
 		withMr(d, gitlabClient),

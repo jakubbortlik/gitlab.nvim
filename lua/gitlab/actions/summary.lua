@@ -8,7 +8,6 @@ local job = require("gitlab.job")
 local common = require("gitlab.actions.common")
 local u = require("gitlab.utils")
 local popup = require("gitlab.popup")
-local List = require("gitlab.utils.list")
 local state = require("gitlab.state")
 local miscellaneous = require("gitlab.actions.miscellaneous")
 
@@ -108,6 +107,28 @@ M.update_details_popup = function(bufnr, info_lines)
   M.color_details(bufnr) -- Color values in details popup
 end
 
+---Return the mergeability checks statuses and descriptions
+---@return string[]
+local make_mergeability_checks = function()
+  local lines = {}
+  for _, check in ipairs(state.MERGEABILITY.mergeability_checks) do
+    local status = state.settings.mergeability_checks.statuses[check.status]
+    if status == nil then
+      u.notify(string.format("Unknown mergeability check status: %s", check.status), vim.log.levels.ERROR)
+    end
+    if status then
+      local description = state.settings.mergeability_checks.checks[check.identifier]
+      if description == nil then
+        u.notify(string.format("Unknown mergeability check identifier: %s", check.identifier), vim.log.levels.ERROR)
+      end
+      if description then
+        table.insert(lines, status .. " " .. description)
+      end
+    end
+  end
+  return lines
+end
+
 -- Builds a lua list of strings that contain metadata about the current MR. Only builds the
 -- lines that users include in their state.settings.info.fields list.
 M.build_info_lines = function()
@@ -140,6 +161,7 @@ M.build_info_lines = function()
       end,
     },
     web_url = { title = "MR URL", content = info.web_url },
+    mergeability_checks = { title = "Mergeability checks", content = make_mergeability_checks },
   }
 
   local longest_used = ""
@@ -158,22 +180,26 @@ M.build_info_lines = function()
     return string.rep(" ", offset + 3)
   end
 
-  return List.new(state.settings.info.fields):map(function(v)
+  local result = {}
+  for _, v in ipairs(state.settings.info.fields) do
     if v == "merge_status" then
       v = "detailed_merge_status"
     end
     local row = options[v]
-    local line = "* " .. row.title .. row_offset(row.title)
-    if type(row.content) == "function" then
-      local content = row.content()
-      if content ~= nil then
-        line = line .. row.content()
+    local title_prefix = "* " .. row.title .. row_offset(row.title)
+    local content = type(row.content) == "function" and row.content() or row.content
+    if type(content) == "table" then
+      -- Multi-line content
+      local padding = string.rep(" ", #title_prefix)
+      for i, line in ipairs(#content > 0 and content or { "" }) do
+        table.insert(result, (i == 1 and title_prefix or padding) .. line)
       end
     else
-      line = line .. row.content
+      -- Single-line content
+      table.insert(result, title_prefix .. (content or ""))
     end
-    return line
-  end)
+  end
+  return result
 end
 
 -- This function will PUT the new description to the Go server
