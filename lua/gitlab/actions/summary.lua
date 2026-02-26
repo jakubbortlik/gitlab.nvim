@@ -169,9 +169,13 @@ M.build_info_lines = function()
     if v == "merge_status" then
       v = "detailed_merge_status"
     end -- merge_status was deprecated, see https://gitlab.com/gitlab-org/gitlab/-/issues/3169#note_1162532204
-    local title = options[v].title
-    if string.len(title) > string.len(longest_used) then
-      longest_used = title
+    if options[v] == nil then
+      u.notify(string.format("Invalid field in settings.info.fields: '%s'", v), vim.log.levels.ERROR)
+    else
+      local title = options[v].title
+      if string.len(title) > string.len(longest_used) then
+        longest_used = title
+      end
     end
   end
 
