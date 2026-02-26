@@ -253,7 +253,7 @@
 
 ---@class InfoSettings
 ---@field horizontal? boolean -- Display metadata to the left of the summary rather than underneath
----@field fields? ("author" | "created_at" | "updated_at" | "merge_status" | "draft" | "conflicts" | "assignees" | "reviewers" | "pipeline" | "branch" | "target_branch" | "delete_branch" | "squash" | "labels" | "mergeability_checks")[]
+---@field fields? ("author" | "created_at" | "updated_at" | "merge_status" | "draft" | "conflicts" | "assignees" | "reviewers" | "pipeline" | "branch" | "target_branch" | "delete_branch" | "squash" | "labels" | "web_url" | "mergeability_checks")[]
 
 ---@class MergeabilityChecksSettings
 ---@field statuses MergeabilityStatuses
