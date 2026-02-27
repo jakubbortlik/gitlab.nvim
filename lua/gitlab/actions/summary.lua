@@ -156,7 +156,7 @@ M.build_info_lines = function()
     pipeline = {
       title = "Pipeline Status",
       content = function()
-        local pipeline = state.INFO.pipeline
+        local pipeline = info.head_pipeline ~= vim.NIL and info.head_pipeline or info.pipeline
         if type(pipeline) ~= "table" or (type(pipeline) == "table" and u.table_size(pipeline) == 0) then
           return ""
         end
