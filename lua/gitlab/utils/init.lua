@@ -309,8 +309,8 @@ end
 M.get_longest_string = function(list)
   local longest = 0
   for _, v in pairs(list) do
-    if string.len(v) > longest then
-      longest = string.len(v)
+    if vim.fn.strcharlen(v) > longest then
+      longest = vim.fn.strcharlen(v)
     end
   end
   return longest
