@@ -349,6 +349,10 @@ M.can_create_comment = function(must_be_visual)
     return false
   end
 
+  if not git.check_current_branch_up_to_date_on_remote(vim.log.levels.ERROR) then
+    return false
+  end
+
   -- Check we're in visual mode for code suggestions and multiline comments
   if must_be_visual and not u.check_visual_mode() then
     return false
