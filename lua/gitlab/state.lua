@@ -498,7 +498,7 @@ M.dependencies = {
   },
   mergeability = {
     endpoint = "/mr/info/mergeability",
-    key = "MergeabilityChecks",
+    key = "mergeability_checks",
     state = "MERGEABILITY",
     refresh = false,
   },

@@ -114,7 +114,7 @@ end
 ---@return string[]
 local make_mergeability_checks = function()
   local lines = {}
-  for _, check in ipairs(state.MERGEABILITY.mergeability_checks) do
+  for _, check in ipairs(state.MERGEABILITY) do
     local status = state.settings.mergeability_checks.statuses[check.status]
     if status == nil then
       u.notify(string.format("Unknown mergeability check status: %s", check.status), vim.log.levels.ERROR)
