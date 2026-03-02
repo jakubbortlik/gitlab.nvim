@@ -92,6 +92,8 @@
 ---@field resolved_notes number
 ---@field non_resolvable_notes number
 ---@field help_keymap string
+---@field ahead number|nil -- Number of commits local is ahead of remote
+---@field behind number|nil -- Number of commits local is behind remote
 ---@field updated string
 ---
 ---@class SignTable
