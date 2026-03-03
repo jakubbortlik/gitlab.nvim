@@ -107,6 +107,34 @@ M.get_ahead_behind = function(current_branch, remote_branch)
   return tonumber(ahead), tonumber(behind)
 end
 
+---Pull the branch from remote
+---@param remote string
+---@param branch string
+---@param opts string[]?
+---@return boolean success True if the branch has been pulled successfully
+M.pull = function(remote, branch, opts)
+  local current_branch = M.get_current_branch()
+  if not current_branch then
+    return false
+  end
+  if current_branch ~= branch then
+    local u = require("gitlab.utils")
+    u.notify("Cannot pull. Remote branch is not the same as current branch", vim.log.levels.ERROR)
+    return false
+  end
+  local args = { "git", "pull" }
+  for _, opt in ipairs(opts or {}) do
+    table.insert(args, opt)
+  end
+  table.insert(args, remote)
+  table.insert(args, branch)
+  local _, err = run_system(args)
+  if err ~= nil then
+    return false
+  end
+  return true
+end
+
 ---Return the name of the current branch or nil if it can't be retrieved
 ---@return string|nil
 M.get_current_branch = function()

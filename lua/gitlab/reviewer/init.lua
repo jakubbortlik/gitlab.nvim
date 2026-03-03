@@ -6,7 +6,6 @@
 local List = require("gitlab.utils.list")
 local u = require("gitlab.utils")
 local state = require("gitlab.state")
-local git = require("gitlab.git")
 local hunks = require("gitlab.hunks")
 local async = require("diffview.async")
 local diffview_lib = require("diffview.lib")
@@ -29,18 +28,16 @@ M.init = function()
   end
 end
 
--- Opens the reviewer window.
+-- Opens the reviewer windows.
 M.open = function()
-  local diff_refs = state.INFO.diff_refs
-  if diff_refs == nil then
-    u.notify("Gitlab did not provide diff refs required to review this MR", vim.log.levels.ERROR)
-    return
-  end
+  local git = require("gitlab.git")
 
-  if diff_refs.base_sha == "" or diff_refs.head_sha == "" then
-    u.notify("Merge request contains no changes", vim.log.levels.ERROR)
+  local remote_target_branch =
+    string.format("%s/%s", state.settings.connection_settings.remote, state.INFO.target_branch)
+  if not git.fetch_remote_branch(remote_target_branch) then
     return
   end
+  git.check_current_branch_up_to_date_on_remote(vim.log.levels.WARN)
 
   local diffview_open_command = "DiffviewOpen"
 
@@ -53,17 +50,22 @@ M.open = function()
       diffview_open_command = diffview_open_command .. " --imply-local"
     else
       u.notify(
-        "Your working tree has changes, cannot use 'imply_local' setting for gitlab reviews.\n Stash or commit all changes to use.",
+        "Working tree unclean, cannot use 'imply_local' for review. Stash or commit all changes to use.",
         vim.log.levels.WARN
       )
       state.settings.reviewer_settings.diffview.imply_local = false
     end
   end
 
-  vim.api.nvim_command(string.format("%s %s..%s", diffview_open_command, diff_refs.base_sha, diff_refs.head_sha))
+  local full_command = string.format("%s %s..%s", diffview_open_command, remote_target_branch, state.INFO.source_branch)
+  vim.api.nvim_command(full_command)
 
   M.is_open = true
   local cur_view = diffview_lib.get_current_view()
+  if cur_view == nil then
+    u.notify("Could not find Diffview view", vim.log.levels.ERROR)
+    return
+  end
   M.diffview_layout = cur_view.cur_layout
   M.tabnr = vim.api.nvim_get_current_tabpage()
 
@@ -94,7 +96,6 @@ M.open = function()
     require("gitlab").toggle_discussions() -- Fetches data and opens discussions
   end
 
-  git.check_current_branch_up_to_date_on_remote(vim.log.levels.WARN)
   git.check_mr_in_good_condition()
 end
 

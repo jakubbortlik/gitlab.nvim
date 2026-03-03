@@ -7,7 +7,7 @@ local M = {}
 
 local can_rebase = function()
   local git = require("gitlab.git")
-  -- Check if there are local changes (couldn't run `git pull` after rebasing)
+  -- Check if there are local changes (we wouldn't be able to run `git pull` after rebasing)
   local has_clean_tree, err = git.has_clean_tree()
   if not has_clean_tree then
     u.notify("Cannot rebase when there are changed files", vim.log.levels.ERROR)
@@ -41,8 +41,19 @@ M.confirm_rebase = function(merge_body)
   local job = require("gitlab.job")
   job.run_job("/mr/rebase", "POST", merge_body, function(data)
     u.notify(data.message, vim.log.levels.INFO)
-    u.notify("Implement pulling", vim.log.levels.INFO)
-    u.notify("Implement updating the reviewer", vim.log.levels.INFO)
+    local git = require("gitlab.git")
+    local state = require("gitlab.state")
+    local success = git.pull(state.settings.connection_settings.remote, state.INFO.source_branch, { "--rebase" })
+    if success then
+      u.notify(
+        string.format(
+          "Pulled `%s %s` successfully",
+          state.settings.connection_settings.remote,
+          state.INFO.source_branch
+        ),
+        vim.log.levels.INFO
+      )
+    end
   end)
 end
 
