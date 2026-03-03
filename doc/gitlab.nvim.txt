@@ -183,6 +183,8 @@ you call this function with no values the defaults will be used:
           revoke = "glR", -- Revoke MR approval
           merge = "glM", -- Merge the feature branch to the target branch and close MR
           set_auto_merge = "glm", -- Set MR to merge automatically when the pipeline succeeds
+          rebase = "glrr", -- Rebase the feature branch of the MR on the server and pull the new state
+          rebase_skip_ci = "glrs", -- Same as `rebase`, but skip the CI pipeline
           create_mr = "glC", -- Create a new MR for currently checked-out feature branch
           choose_merge_request = "glc", -- Chose MR for review (if necessary check out the feature branch)
           start_review = "glS", -- Start review for the currently checked-out branch
@@ -1093,6 +1095,20 @@ request" page). You can see the current settings in the Summary view, see
               message. To use the default message, leave the popup empty.
               Use the `keymaps.popup.perform_action` to merge the MR
               with your message.
+
+                                                                *gitlab.nvim.rebase*
+gitlab.rebase({opts}) ~
+
+Rebases the feature branch of the MR on the server and pulls the new state of
+the target branch.
+>lua
+  require("gitlab").rebase()
+  require("gitlab").rebase({ skip_ci = true })
+<
+    Parameters: ~
+        • {opts}: (table|nil) Keyword arguments that can be used to override
+          default behavior.
+            • {skip_ci}: (bool) If true, the CI pipeline will be skipped.
 
                                                                 *gitlab.nvim.data*
 gitlab.data({resources}, {cb}) ~

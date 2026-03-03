@@ -86,6 +86,8 @@ M.settings = {
       revoke = "glR",
       merge = "glM",
       set_auto_merge = "glm",
+      rebase = "glrr",
+      rebase_skip_ci = "glrs",
       create_mr = "glC",
       choose_merge_request = "glc",
       start_review = "glS",
@@ -211,6 +213,9 @@ M.settings = {
       width = 40,
       border = "rounded",
     },
+  },
+  rebase_mr = {
+    skip_ci = false,
   },
   choose_merge_request = {
     open_reviewer = true,
@@ -440,6 +445,18 @@ M.set_global_keymaps = function()
     vim.keymap.set("n", keymaps.global.set_auto_merge, function()
       require("gitlab").merge({ auto_merge = true })
     end, { desc = "Set MR to auto-merge", nowait = keymaps.global.set_auto_merge_nowait })
+  end
+
+  if keymaps.global.rebase then
+    vim.keymap.set("n", keymaps.global.rebase, function()
+      require("gitlab").rebase()
+    end, { desc = "Rebase MR", nowait = keymaps.global.rebase_nowait })
+  end
+
+  if keymaps.global.rebase_skip_ci then
+    vim.keymap.set("n", keymaps.global.rebase_skip_ci, function()
+      require("gitlab").rebase({ skip_ci = true })
+    end, { desc = "Rebase MR and skip CI", nowait = keymaps.global.rebase_skip_ci_nowait })
   end
 
   if keymaps.global.copy_mr_url then

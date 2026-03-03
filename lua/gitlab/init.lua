@@ -8,6 +8,7 @@ local reviewer = require("gitlab.reviewer")
 local discussions = require("gitlab.actions.discussions")
 local merge_requests = require("gitlab.actions.merge_requests")
 local merge = require("gitlab.actions.merge")
+local rebase = require("gitlab.actions.rebase")
 local summary = require("gitlab.actions.summary")
 local data = require("gitlab.actions.data")
 local assignees_and_reviewers = require("gitlab.actions.assignees_and_reviewers")
@@ -98,6 +99,7 @@ return {
   end,
   pipeline = async.sequence({ latest_pipeline }, pipeline.open),
   merge = async.sequence({ u.merge(info, { refresh = true }) }, merge.merge),
+  rebase = async.sequence({ u.merge(info, { refresh = true }) }, rebase.rebase),
   -- Discussion Tree Actions 🌴
   toggle_discussions = function()
     if discussions.split_visible then

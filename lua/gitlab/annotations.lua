@@ -168,6 +168,7 @@
 ---@field discussion_signs? DiscussionSigns -- The settings for discussion signs/diagnostics
 ---@field pipeline? PipelineSettings -- The settings for the pipeline popup
 ---@field create_mr? CreateMrSettings -- The settings when creating an MR
+---@field rebase_mr? RebaseMrSettings -- The settings when rebasing an MR
 ---@field colors? ColorSettings --- Colors settings for the plugin
 
 ---@class ServerSettings
@@ -205,6 +206,9 @@
 ---@field squash? boolean -- Whether the commits will be marked for squashing
 ---@field title_input? TitleInputSettings
 ---@field fork? ForkSettings
+
+---@class RebaseMrSettings: table
+---@field skip_ci? boolean -- Whether to skip CI after rabasing
 
 ---@class ForkSettings: table
 ---@field enabled? boolean -- If making an MR from a fork
