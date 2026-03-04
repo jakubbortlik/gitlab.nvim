@@ -143,6 +143,8 @@ glA	Approve MR
 glR	Revoke MR approval
 glM	Merge the feature branch to the target branch and close MR
 glm	Set MR to merge automatically when the pipeline succeeds
+glrr Rebase the feature branch of the MR on the server and pull the new state
+glrs Same as `glrr`, but skip the CI pipeline
 glC	Create a new MR for currently checked-out feature branch
 glc	Chose MR for review
 glS	Start review for the currently checked-out branch
