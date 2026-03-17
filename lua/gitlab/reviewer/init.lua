@@ -30,13 +30,18 @@ end
 
 -- Opens the reviewer windows.
 M.open = function()
-  local git = require("gitlab.git")
-
-  local remote_target_branch =
-    string.format("%s/%s", state.settings.connection_settings.remote, state.INFO.target_branch)
-  if not git.fetch_remote_branch(remote_target_branch) then
+  local diff_refs = state.INFO.diff_refs
+  if diff_refs == nil then
+    u.notify("Gitlab did not provide diff refs required to review this MR", vim.log.levels.ERROR)
     return
   end
+
+  if diff_refs.base_sha == "" or diff_refs.head_sha == "" then
+    u.notify("Merge request contains no changes", vim.log.levels.ERROR)
+    return
+  end
+
+  local git = require("gitlab.git")
   git.check_current_branch_up_to_date_on_remote(vim.log.levels.WARN)
 
   local diffview_open_command = "DiffviewOpen"
@@ -49,16 +54,12 @@ M.open = function()
     if has_clean_tree then
       diffview_open_command = diffview_open_command .. " --imply-local"
     else
-      u.notify(
-        "Working tree unclean, cannot use 'imply_local' for review. Stash or commit all changes to use.",
-        vim.log.levels.WARN
-      )
+      u.notify("Working tree unclean. Stash or commit all changes to use 'imply_local'.", vim.log.levels.WARN)
       state.settings.reviewer_settings.diffview.imply_local = false
     end
   end
 
-  local full_command = string.format("%s %s..%s", diffview_open_command, remote_target_branch, state.INFO.source_branch)
-  vim.api.nvim_command(full_command)
+  vim.api.nvim_command(string.format("%s %s..%s", diffview_open_command, diff_refs.base_sha, state.INFO.source_branch))
 
   M.is_open = true
   local cur_view = diffview_lib.get_current_view()
