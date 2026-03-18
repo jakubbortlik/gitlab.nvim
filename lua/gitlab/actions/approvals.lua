@@ -6,8 +6,10 @@ local M = {}
 
 local refresh_status_state = function(data)
   u.notify(data.message, vim.log.levels.INFO)
-  state.load_new_state("info", function()
-    require("gitlab.actions.summary").update_summary_details()
+  state.load_new_state("mergeability", function()
+    state.load_new_state("info", function()
+      require("gitlab.actions.summary").update_summary_details()
+    end)
   end)
 end
 

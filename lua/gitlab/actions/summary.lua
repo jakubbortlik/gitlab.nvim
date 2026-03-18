@@ -8,9 +8,11 @@ local job = require("gitlab.job")
 local common = require("gitlab.actions.common")
 local u = require("gitlab.utils")
 local popup = require("gitlab.popup")
-local List = require("gitlab.utils.list")
 local state = require("gitlab.state")
 local miscellaneous = require("gitlab.actions.miscellaneous")
+
+-- No-break space used in summary details to make matching different parts of the line more robust
+local nbsp = " "
 
 local M = {
   layout_visible = false,
@@ -108,6 +110,28 @@ M.update_details_popup = function(bufnr, info_lines)
   M.color_details(bufnr) -- Color values in details popup
 end
 
+---Return the mergeability checks statuses and descriptions
+---@return string[]
+local make_mergeability_checks = function()
+  local lines = {}
+  for _, check in ipairs(state.MERGEABILITY) do
+    local status = state.settings.mergeability_checks.statuses[check.status]
+    if status == nil then
+      u.notify(string.format("Unknown mergeability check status: %s", check.status), vim.log.levels.ERROR)
+    end
+    if status then
+      local description = state.settings.mergeability_checks.checks[check.identifier]
+      if description == nil then
+        u.notify(string.format("Unknown mergeability check identifier: %s", check.identifier), vim.log.levels.ERROR)
+      end
+      if description then
+        table.insert(lines, status .. " " .. description)
+      end
+    end
+  end
+  return lines
+end
+
 -- Builds a lua list of strings that contain metadata about the current MR. Only builds the
 -- lines that users include in their state.settings.info.fields list.
 M.build_info_lines = function()
@@ -132,7 +156,7 @@ M.build_info_lines = function()
     pipeline = {
       title = "Pipeline Status",
       content = function()
-        local pipeline = state.INFO.pipeline
+        local pipeline = info.head_pipeline ~= vim.NIL and info.head_pipeline or info.pipeline
         if type(pipeline) ~= "table" or (type(pipeline) == "table" and u.table_size(pipeline) == 0) then
           return ""
         end
@@ -140,6 +164,7 @@ M.build_info_lines = function()
       end,
     },
     web_url = { title = "MR URL", content = info.web_url },
+    mergeability_checks = { title = "Mergeability checks", content = make_mergeability_checks },
   }
 
   local longest_used = ""
@@ -147,33 +172,41 @@ M.build_info_lines = function()
     if v == "merge_status" then
       v = "detailed_merge_status"
     end -- merge_status was deprecated, see https://gitlab.com/gitlab-org/gitlab/-/issues/3169#note_1162532204
-    local title = options[v].title
-    if string.len(title) > string.len(longest_used) then
-      longest_used = title
+    if options[v] == nil then
+      u.notify(string.format("Invalid field in settings.info.fields: '%s'", v), vim.log.levels.ERROR)
+    else
+      local title = options[v].title
+      if vim.fn.strcharlen(title) > vim.fn.strcharlen(longest_used) then
+        longest_used = title
+      end
     end
   end
 
   local function row_offset(row)
-    local offset = string.len(longest_used) - string.len(row)
-    return string.rep(" ", offset + 3)
+    local offset = vim.fn.strcharlen(longest_used) - vim.fn.strcharlen(row)
+    return string.rep(nbsp, offset + 3)
   end
 
-  return List.new(state.settings.info.fields):map(function(v)
+  local result = {}
+  for _, v in ipairs(state.settings.info.fields) do
     if v == "merge_status" then
       v = "detailed_merge_status"
     end
     local row = options[v]
-    local line = "* " .. row.title .. row_offset(row.title)
-    if type(row.content) == "function" then
-      local content = row.content()
-      if content ~= nil then
-        line = line .. row.content()
+    local title_prefix = "* " .. row.title .. row_offset(row.title)
+    local content = type(row.content) == "function" and row.content() or row.content
+    if type(content) == "table" then
+      -- Multi-line content
+      local padding = string.rep(nbsp, vim.fn.strcharlen(title_prefix)) -- no-break space
+      for i, line in ipairs(#content > 0 and content or { "" }) do
+        table.insert(result, (i == 1 and title_prefix or padding) .. line)
       end
     else
-      line = line .. row.content
+      -- Single-line content
+      table.insert(result, title_prefix .. (content or ""))
     end
-    return line
-  end)
+  end
+  return result
 end
 
 -- This function will PUT the new description to the Go server
@@ -260,24 +293,57 @@ end
 
 M.color_details = function(bufnr)
   local details_namespace = vim.api.nvim_create_namespace("Details")
-  for i, v in ipairs(state.settings.info.fields) do
-    if v == "labels" then
-      local line_content = u.get_line_content(bufnr, i)
+  for i, line in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
+    if line:match("^* Labels") then
       for j, label in ipairs(state.LABELS) do
-        local start_idx, end_idx = line_content:find(label.Name)
+        local start_idx, end_idx = line:find(label.Name, 1, true)
         if start_idx ~= nil and end_idx ~= nil then
           vim.cmd("highlight " .. "label" .. j .. " guifg=white")
           vim.api.nvim_set_hl(0, ("label" .. j), { fg = label.Color })
-          vim.api.nvim_buf_add_highlight(bufnr, details_namespace, ("label" .. j), i - 1, start_idx - 1, end_idx)
+          vim.hl.range(bufnr, details_namespace, ("label" .. j), { i - 1, start_idx - 1 }, { i - 1, end_idx })
         end
       end
-    elseif v == "delete_branch" or v == "squash" or v == "draft" or v == "conflicts" then
-      local line_content = u.get_line_content(bufnr, i)
-      local start_idx, end_idx = line_content:find("%S-$")
-      if start_idx ~= nil and end_idx ~= nil then
-        vim.api.nvim_set_hl(0, "boolean", { link = "Constant" })
-        vim.api.nvim_buf_add_highlight(bufnr, details_namespace, "boolean", i - 1, start_idx - 1, end_idx)
-      end
+    elseif line:match("^* Status") then
+      local status = line:match("[^" .. nbsp .. "]-$")
+      local hl = ({
+        blocked_status = "DiagnosticError",
+        broken_status = "DiagnosticError",
+        checking = "DiagnosticInfo",
+        ci_must_pass = "DiagnosticWarn",
+        ci_still_running = "DiagnosticInfo",
+        discussions_not_resolved = "DiagnosticWarn",
+        draft_status = "Comment",
+        external_status_checks = "DiagnosticHint",
+        mergeable = "DiagnosticOK",
+        not_approved = "DiagnosticWarn",
+        not_open = "NonText",
+        policies_denied = "DiagnosticError",
+        unchecked = "NonText",
+      })[status] or "Normal"
+      local start_idx, end_idx = line:find("[^" .. nbsp .. "]-$")
+      vim.hl.range(bufnr, details_namespace, hl, { i - 1, start_idx - 1 }, { i - 1, end_idx })
+    elseif line:match("^* Branch") or line:match("^* Target Branch") then
+      local start_idx, end_idx = line:find("[^" .. nbsp .. "]-$")
+      vim.hl.range(bufnr, details_namespace, "Title", { i - 1, start_idx - 1 }, { i - 1, end_idx })
+    elseif line:match("^* Pipeline") then
+      local status = line:match("[^" .. nbsp .. "]-$")
+      local hl = ({
+        canceled = "DiagnosticWarn",
+        created = "DiagnosticInfo",
+        failed = "DiagnosticError",
+        manual = "DiagnosticHint",
+        pending = "DiagnosticWarn",
+        running = "DiagnosticInfo",
+        skipped = "Comment",
+        success = "DiagnosticOK",
+        unknown = "NonText",
+      })[status] or "Normal"
+      local start_idx, end_idx = line:find("[^" .. nbsp .. "]-$")
+      vim.hl.range(bufnr, details_namespace, hl, { i - 1, start_idx - 1 }, { i - 1, end_idx })
+    elseif line:match(nbsp .. "No$") or line:match(nbsp .. "Yes$") then
+      local start_idx, end_idx = line:find("[^" .. nbsp .. "]-$")
+      vim.api.nvim_set_hl(0, "boolean", { link = "Constant" })
+      vim.hl.range(bufnr, details_namespace, "boolean", { i - 1, start_idx - 1 }, { i - 1, end_idx })
     end
   end
 end
