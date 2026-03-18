@@ -94,6 +94,8 @@ local function content()
     resolved_notes = resolved_notes,
     non_resolvable_notes = non_resolvable_notes,
     help_keymap = state.settings.keymaps.help,
+    ahead = state.ahead_behind[1],
+    behind = state.ahead_behind[2],
     updated = updated,
   }
 
@@ -158,7 +160,7 @@ end
 M.make_winbar = function(t)
   local discussions_focused = M.current_view_type == "discussions"
   local discussion_text = add_drafts_and_resolvable(
-    "Inline Comments:",
+    "Comments:",
     t.resolvable_discussions,
     t.resolved_discussions,
     t.inline_draft_notes,
@@ -190,14 +192,17 @@ M.make_winbar = function(t)
   local separator = "%#Comment#|"
   local end_section = "%="
   local updated = "%#Text#" .. t.updated
+  local ahead_behind = M.get_ahead_behind(t.ahead, t.behind)
   local help = "%#Comment#Help: " .. (t.help_keymap and t.help_keymap:gsub(" ", "<space>") .. " " or "unmapped")
   return string.format(
-    " %s  %s  %s %s %s %s %s %s %s %s %s",
+    " %s  %s  %s %s %s %s %s %s %s %s %s %s %s",
     discussion_text,
     separator,
     notes_text,
     end_section,
     updated,
+    separator,
+    ahead_behind,
     separator,
     sort_method,
     separator,
@@ -252,6 +257,16 @@ M.get_mode = function()
   else
     return "%#GitlabLiveMode#Live"
   end
+end
+
+---@param ahead number|nil
+---@param behind number|nil
+M.get_ahead_behind = function(ahead, behind)
+  local a = ahead == nil and "?" or tostring(ahead)
+  local b = behind == nil and "?" or tostring(behind)
+  a = ((a == "?" or a == "0") and "%#Comment#" or "%#WarningMsg#") .. a
+  b = ((b == "?" or b == "0") and "%#Comment#" or "%#WarningMsg#") .. b
+  return a .. "↑ " .. b .. "↓"
 end
 
 ---Toggles the current view type (or sets it to `override`) and then updates the view.

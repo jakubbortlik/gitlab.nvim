@@ -74,14 +74,17 @@ M.fetch_remote_branch = function(remote_branch)
   return true
 end
 
----Determines whether the tracking branch is ahead of or behind the current branch, and warns the user if so
----@param current_branch string
----@param remote_branch string
----@param log_level number
----@return boolean
-M.get_ahead_behind = function(current_branch, remote_branch, log_level)
+---Determines whether the tracking branch is ahead of or behind the current branch and returns the
+---number of ahead and behind commits or nil values in case of errors.
+---@param current_branch string|nil
+---@param remote_branch string|nil
+---@return integer|nil ahead, integer|nil behind
+M.get_ahead_behind = function(current_branch, remote_branch)
+  if current_branch == nil or remote_branch == nil then
+    return nil, nil
+  end
   if not M.fetch_remote_branch(remote_branch) then
-    return false
+    return nil, nil
   end
 
   local u = require("gitlab.utils")
@@ -89,39 +92,16 @@ M.get_ahead_behind = function(current_branch, remote_branch, log_level)
     run_system({ "git", "rev-list", "--left-right", "--count", current_branch .. "..." .. remote_branch })
   if err ~= nil or result == nil then
     u.notify("Could not determine if branch is up-to-date: " .. err, vim.log.levels.ERROR)
-    return false
+    return nil, nil
   end
 
   local ahead, behind = result:match("(%d+)%s+(%d+)")
   if ahead == nil or behind == nil then
-    u.notify("Error parsing ahead/behind information.", vim.log.levels.ERROR)
-    return false
+    u.notify("Error parsing ahead/behind information", vim.log.levels.ERROR)
+    return nil, nil
   end
 
-  ahead = tonumber(ahead)
-  behind = tonumber(behind)
-
-  if ahead > 0 and behind == 0 then
-    u.notify(string.format("There are local changes that haven't been pushed to %s yet", remote_branch), log_level)
-    return false
-  end
-  if behind > 0 and ahead == 0 then
-    u.notify(string.format("There are remote changes on %s that haven't been pulled yet", remote_branch), log_level)
-    return false
-  end
-
-  if ahead > 0 and behind > 0 then
-    u.notify(
-      string.format(
-        "Your branch and the remote %s have diverged. You need to pull, possibly rebase, and then push.",
-        remote_branch
-      ),
-      log_level
-    )
-    return false
-  end
-
-  return true -- Checks passed, branch is up-to-date
+  return tonumber(ahead), tonumber(behind)
 end
 
 ---Return the name of the current branch or nil if it can't be retrieved
@@ -184,16 +164,35 @@ end
 ---@return boolean
 M.check_current_branch_up_to_date_on_remote = function(log_level)
   local current_branch = M.get_current_branch()
-  if current_branch == nil then
-    return false
-  end
-
   local remote_branch = M.get_remote_branch()
-  if remote_branch == nil then
+  local ahead, behind = M.get_ahead_behind(current_branch, remote_branch)
+  if ahead == nil or behind == nil then
     return false
   end
 
-  return M.get_ahead_behind(current_branch, remote_branch, log_level)
+  local u = require("gitlab.utils")
+
+  if ahead > 0 and behind == 0 then
+    u.notify(string.format("There are local changes that haven't been pushed to %s yet", remote_branch), log_level)
+    return false
+  end
+  if behind > 0 and ahead == 0 then
+    u.notify(string.format("There are remote changes on %s that haven't been pulled yet", remote_branch), log_level)
+    return false
+  end
+
+  if ahead > 0 and behind > 0 then
+    u.notify(
+      string.format(
+        "Your branch and the remote %s have diverged. You need to pull, possibly rebase, and then push.",
+        remote_branch
+      ),
+      log_level
+    )
+    return false
+  end
+
+  return true -- Checks passed, branch is up-to-date
 end
 
 ---Warns user if the current MR is in a bad state (closed, has conflicts, merged)

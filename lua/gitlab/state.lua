@@ -3,16 +3,17 @@
 -- This module is also responsible for ensuring that the state of the plugin
 -- is valid via dependencies
 
-local git = require("gitlab.git")
 local u = require("gitlab.utils")
 local List = require("gitlab.utils.list")
-local M = {}
-
-M.emoji_map = nil
+local M = {
+  emoji_map = nil,
+  ahead_behind = { nil, nil },
+}
 
 ---Returns a gitlab token, and a gitlab URL. Used to connect to gitlab.
 ---@return string|nil, string|nil, string|nil
 M.default_auth_provider = function()
+  local git = require("gitlab.git")
   local base_path, err = M.settings.config_path, nil
   if base_path == nil then
     base_path, err = git.base_dir()
