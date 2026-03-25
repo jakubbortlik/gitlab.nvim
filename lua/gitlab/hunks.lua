@@ -102,6 +102,7 @@ local parse_hunks_and_diff = function(base_sha)
     "--minimal",
     "--unified=0",
     "--no-color",
+    "--no-ext-diff",
     base_sha,
     "--",
     reviewer.get_current_file_oldpath(),
