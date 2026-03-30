@@ -509,6 +509,12 @@ M.current_file_path = function()
   return vim.fn.fnamemodify(path, ":p")
 end
 
+-- Returns the root path of the plugin (four levels up from this file: lua/gitlab/utils/init.lua)
+M.get_root_path = function()
+  local path = debug.getinfo(1, "S").source:sub(2)
+  return vim.fn.fnamemodify(path, ":p:h:h:h:h")
+end
+
 local random = math.random
 M.uuid = function()
   local template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx"

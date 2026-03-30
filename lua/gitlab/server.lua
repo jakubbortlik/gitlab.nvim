@@ -30,6 +30,10 @@ end
 
 -- Starts the Go server and call the callback provided
 M.start = function(callback)
+  if state.settings.port ~= nil and state.settings.server.port == nil then
+    state.settings.server.port = state.settings.port
+    u.notify("The setting `port` has been renamed `server.port`", vim.log.levels.WARN)
+  end
   local port = tonumber(state.settings.server.port) or 0
   local parsed_port = nil
   local callback_called = false
@@ -104,8 +108,7 @@ end
 
 -- Builds the Go binary with the current Git tag.
 M.build = function(override)
-  local file_path = u.current_file_path()
-  state.settings.root_path = vim.fn.fnamemodify(file_path, ":h:h:h:h")
+  state.settings.root_path = u.get_root_path()
 
   -- If the user provided a path to the server, don't build it.
   if state.settings.server.binary ~= nil then
@@ -218,8 +221,7 @@ M.get_version = function(callback)
     u.notify("Gitlab server not running", vim.log.levels.ERROR)
     return nil
   end
-  local file_path = u.current_file_path()
-  local parent_dir = vim.fn.fnamemodify(file_path, ":h:h:h:h")
+  local parent_dir = u.get_root_path()
 
   local version_output = vim.system({ "git", "describe", "--tags", "--always" }, { cwd = parent_dir }):wait()
   local plugin_version = version_output.code == 0 and vim.trim(version_output.stdout) or "unknown"

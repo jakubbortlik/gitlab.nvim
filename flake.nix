@@ -7,7 +7,7 @@
   outputs = { self, flake-utils, nixpkgs }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
+        pkgs = import nixpkgs { inherit system; };
         gitlab-nvim-server = pkgs.buildGoModule {
           pname = "gitlab.nvim-server";
           version = "git";
@@ -24,12 +24,12 @@
           doCheck = false;
         };
       in
-      rec {
+      {
         formatter = pkgs.nixpkgs-fmt;
         packages.gitlab-nvim-server = gitlab-nvim-server;
         packages.gitlab-nvim = gitlab-nvim;
-        packages.default = packages.gitlab-nvim;
-        devShell = pkgs.mkShell {
+        packages.default = gitlab-nvim;
+        devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             git
             go
