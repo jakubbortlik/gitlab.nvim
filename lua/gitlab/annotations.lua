@@ -148,7 +148,7 @@
 --- Plugin Settings
 ---
 ---@class Settings
----@field port? number -- The port of the Go server, which runs in the background, if omitted or `nil` the port will be chosen automatically
+---@field server ServerSettings
 ---@field remote_branch "origin" | string -- The remote, "origin" by default
 ---@field log_path? string -- Log path for the Go server
 ---@field string? any -- Custom path for `.gitlab.nvim` file, please read the "Connecting to Gitlab" section
@@ -166,6 +166,10 @@
 ---@field pipeline? PipelineSettings -- The settings for the pipeline popup
 ---@field create_mr? CreateMrSettings -- The settings when creating an MR
 ---@field colors? ColorSettings --- Colors settings for the plugin
+
+---@class ServerSettings
+---@field port? number -- The port of the Go server, which runs in the background, if omitted or `nil` the port will be chosen automatically
+---@field binary? string -- The path to the server binary. If omitted or nil, the server will be built
 
 ---@class DiscussionSigns: table
 ---@field enabled? boolean -- Show diagnostics for gitlab comments in the reviewer
