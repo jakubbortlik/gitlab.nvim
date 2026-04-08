@@ -31,7 +31,7 @@ M.check = function(return_results)
       package = "plenary",
     },
     {
-      name = "sindrets/diffview.nvim",
+      name = "dlyongemallo/diffview.nvim",
       package = "diffview",
     },
   }
