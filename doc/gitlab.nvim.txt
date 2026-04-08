@@ -185,6 +185,7 @@ you call this function with no values the defaults will be used:
           set_auto_merge = "glm", -- Set MR to merge automatically when the pipeline succeeds
           rebase = "glrr", -- Rebase the feature branch of the MR on the server and pull the new state
           rebase_skip_ci = "glrs", -- Same as `rebase`, but skip the CI pipeline
+          rebase_force = "glrf", -- Same as `rebase`, but rebase even if MR already is rebased
           create_mr = "glC", -- Create a new MR for currently checked-out feature branch
           choose_merge_request = "glc", -- Chose MR for review (if necessary check out the feature branch)
           start_review = "glS", -- Start review for the currently checked-out branch
@@ -1103,12 +1104,15 @@ Rebases the feature branch of the MR on the server and pulls the new state of
 the target branch.
 >lua
   require("gitlab").rebase()
-  require("gitlab").rebase({ skip_ci = true })
+  require("gitlab").rebase({ skip_ci = true, force = true })
 <
     Parameters: ~
         • {opts}: (table|nil) Keyword arguments that can be used to override
           default behavior.
-            • {skip_ci}: (bool) If true, the CI pipeline will be skipped.
+            • {skip_ci}: (bool) If true, a CI pipeline is not created (this
+              may lead to a failed Mergeability Check (CI_MUST_PASS).
+            • {force}: (bool) If true, MR is rebased even if MR already is
+              rebased (this may run an unnecessary CI pipeline).
 
                                                                 *gitlab.nvim.data*
 gitlab.data({resources}, {cb}) ~

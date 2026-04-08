@@ -99,7 +99,7 @@ return {
   end,
   pipeline = async.sequence({ latest_pipeline }, pipeline.open),
   merge = async.sequence({ u.merge(info, { refresh = true }) }, merge.merge),
-  rebase = async.sequence({ u.merge(info, { refresh = true }) }, rebase.rebase),
+  rebase = async.sequence({ u.merge(mergeability, { refresh = true }), info }, rebase.rebase),
   -- Discussion Tree Actions 🌴
   toggle_discussions = function()
     if discussions.split_visible then

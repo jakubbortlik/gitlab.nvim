@@ -3,7 +3,8 @@ local u = require("gitlab.utils")
 local M = {}
 
 ---@class RebaseOpts
----@field skip_ci boolean?
+---@field skip_ci boolean? If true, a CI pipeline is not created.
+---@field force boolean? If true, MR is rebased even if MR already is rebased.
 
 local can_rebase = function()
   local git = require("gitlab.git")
@@ -21,15 +22,25 @@ end
 
 ---@param opts RebaseOpts
 M.rebase = function(opts)
+  opts = opts or {}
   if not can_rebase() then
     return
   end
 
-  -- TODO: check that MR needs rebasing (requires https://github.com/harrisoncramer/gitlab.nvim/pull/532)
-
   local state = require("gitlab.state")
+
+  if not opts.force then
+    local need_rebase = vim.iter(state.MERGEABILITY):find(function(c)
+      return c.identifier == "NEED_REBASE"
+    end)
+    if need_rebase and need_rebase.status == "SUCCESS" then
+      u.notify("MR is already rebased", vim.log.levels.ERROR)
+      return
+    end
+  end
+
   local rebase_body = { skip_ci = state.settings.rebase_mr.skip_ci }
-  if opts and opts.skip_ci ~= nil then
+  if opts.skip_ci ~= nil then
     rebase_body.skip_ci = opts.skip_ci
   end
 
