@@ -92,6 +92,7 @@ M.settings = {
       create_mr = "glC",
       choose_merge_request = "glc",
       start_review = "glS",
+      reload_review = "gl<C-R>",
       summary = "gls",
       copy_mr_url = "glu",
       open_in_browser = "glo",
@@ -344,6 +345,12 @@ M.set_global_keymaps = function()
     vim.keymap.set("n", keymaps.global.start_review, function()
       require("gitlab").review()
     end, { desc = "Start Gitlab review", nowait = keymaps.global.start_review_nowait })
+  end
+
+  if keymaps.global.reload_review then
+    vim.keymap.set("n", keymaps.global.reload_review, function()
+      require("gitlab").reload_review()
+    end, { desc = "Reload Gitlab review", nowait = keymaps.global.reload_review_nowait })
   end
 
   if keymaps.global.choose_merge_request then

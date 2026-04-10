@@ -376,6 +376,7 @@
 ---@field create_mr? string -- Create a new MR for currently checked-out feature branch
 ---@field choose_merge_request? string -- Chose MR for review (if necessary check out the feature branch)
 ---@field start_review? string -- Start review for the currently checked-out branch
+---@field reload_review? string -- Load new MR state from Gitlab and apply new diff refs to the diff view
 ---@field summary? string -- Show the editable summary of the MR
 ---@field copy_mr_url? string -- Copy the URL of the MR to the system clipboard
 ---@field open_in_browser? string -- Openthe URL of the MR in the default Internet browser

@@ -149,6 +149,7 @@ glrf	Same as `rebase`, but rebase even if MR already is rebased
 glC	Create a new MR for currently checked-out feature branch
 glc	Chose MR for review
 glS	Start review for the currently checked-out branch
+gl<C-R>	Load new MR state from Gitlab and apply new diff refs to the diff view
 gls	Show the editable summary of the MR
 glu	Copy the URL of the MR to the system clipboard
 glo	Open the URL of the MR in the default Internet browser

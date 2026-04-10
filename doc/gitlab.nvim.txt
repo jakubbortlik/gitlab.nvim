@@ -189,6 +189,7 @@ you call this function with no values the defaults will be used:
           create_mr = "glC", -- Create a new MR for currently checked-out feature branch
           choose_merge_request = "glc", -- Chose MR for review (if necessary check out the feature branch)
           start_review = "glS", -- Start review for the currently checked-out branch
+          reload_review = "gl<C-R>", -- Load new MR state from Gitlab and apply new diff refs to the diff view
           summary = "gls", -- Show the editable summary of the MR
           copy_mr_url = "glu", -- Copy the URL of the MR to the system clipboard
           open_in_browser = "glo", -- Openthe URL of the MR in the default Internet browser
