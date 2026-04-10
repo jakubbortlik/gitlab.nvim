@@ -851,6 +851,25 @@ plugin is loaded. If run twice, will open a second reviewer pane.
 >lua
   require("gitlab").review()
 <
+                                                                *gitlab.nvim.reload_review*
+gitlab.reload_review() ~
+
+Loads new MR state from Gitlab. Then if diffview.api is available (with the
+https://github.com/dlyongemallo/diffview.nvim fork) applies the new diff refs
+to the existing diffview, otherwise (with
+https://github.com/sindrets/diffview.nvim) closes and re-opens the reviewer.
+
+>lua
+  require("gitlab").reload_review()
+<
+                                                                *gitlab.nvim.close_review*
+gitlab.close_review() ~
+
+Closes the reviewer tab and discussion tree and cleans up (e.g., removes
+winbar timer).
+>lua
+  require("gitlab").close_review()
+<
                                                                 *gitlab.nvim.summary*
 gitlab.summary() ~
 

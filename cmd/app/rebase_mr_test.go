@@ -7,11 +7,13 @@ import (
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 )
 
-type fakeMergeRequestRebaser struct {
+type fakeMergeRequestRebaserClient struct {
 	testBase
+	rebaseInProgressCount int // number of times to return RebaseInProgress: true
+	getMergeRequestCalls  int // tracks how many times GetMergeRequest was called
 }
 
-func (f fakeMergeRequestRebaser) RebaseMergeRequest(pid interface{}, mergeRequest int64, opt *gitlab.RebaseMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error) {
+func (f *fakeMergeRequestRebaserClient) RebaseMergeRequest(pid interface{}, mergeRequest int64, opt *gitlab.RebaseMergeRequestOptions, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error) {
 	resp, err := f.handleGitlabError()
 	if err != nil {
 		return nil, err
@@ -20,12 +22,25 @@ func (f fakeMergeRequestRebaser) RebaseMergeRequest(pid interface{}, mergeReques
 	return resp, err
 }
 
+func (f *fakeMergeRequestRebaserClient) GetMergeRequest(pid interface{}, mergeRequest int64, opt *gitlab.GetMergeRequestsOptions, options ...gitlab.RequestOptionFunc) (*gitlab.MergeRequest, *gitlab.Response, error) {
+	resp, err := f.handleGitlabError()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	f.getMergeRequestCalls++
+	rebaseInProgress := f.getMergeRequestCalls <= f.rebaseInProgressCount
+
+	return &gitlab.MergeRequest{RebaseInProgress: rebaseInProgress}, resp, err
+}
+
 func TestRebaseHandler(t *testing.T) {
 	var testRebaseMrPayload = RebaseMrRequest{SkipCI: false}
-	t.Run("Rebases merge request", func(t *testing.T) {
+	t.Run("Rebases merge request when rebase completes immediately", func(t *testing.T) {
 		request := makeRequest(t, http.MethodPost, "/mr/rebase", testRebaseMrPayload)
+		fakeClient := &fakeMergeRequestRebaserClient{rebaseInProgressCount: 0}
 		svc := middleware(
-			mergeRequestRebaserService{testProjectData, fakeMergeRequestRebaser{}},
+			mergeRequestRebaserService{testProjectData, fakeClient},
 			withMr(testProjectData, fakeMergeRequestLister{}),
 			withPayloadValidation(methodToPayload{
 				http.MethodPost: newPayload[RebaseMrRequest],
@@ -33,13 +48,30 @@ func TestRebaseHandler(t *testing.T) {
 			withMethodCheck(http.MethodPost),
 		)
 		data := getSuccessData(t, svc, request)
-		assert(t, data.Message, "MR rebased successfully")
+		assert(t, data.Message, "MR rebased on server")
+		assert(t, fakeClient.getMergeRequestCalls, 1)
+	})
+	t.Run("Rebases merge request and polls until rebase completes", func(t *testing.T) {
+		request := makeRequest(t, http.MethodPost, "/mr/rebase", testRebaseMrPayload)
+		fakeClient := &fakeMergeRequestRebaserClient{rebaseInProgressCount: 1}
+		svc := middleware(
+			mergeRequestRebaserService{testProjectData, fakeClient},
+			withMr(testProjectData, fakeMergeRequestLister{}),
+			withPayloadValidation(methodToPayload{
+				http.MethodPost: newPayload[RebaseMrRequest],
+			}),
+			withMethodCheck(http.MethodPost),
+		)
+		data := getSuccessData(t, svc, request)
+		assert(t, data.Message, "MR rebased on server")
+		assert(t, fakeClient.getMergeRequestCalls, 2)
 	})
 	var testRebaseMrPayloadSkipCI = RebaseMrRequest{SkipCI: true}
 	t.Run("Rebases merge request and skips CI", func(t *testing.T) {
 		request := makeRequest(t, http.MethodPost, "/mr/rebase", testRebaseMrPayloadSkipCI)
+		fakeClient := &fakeMergeRequestRebaserClient{}
 		svc := middleware(
-			mergeRequestRebaserService{testProjectData, fakeMergeRequestRebaser{}},
+			mergeRequestRebaserService{testProjectData, fakeClient},
 			withMr(testProjectData, fakeMergeRequestLister{}),
 			withPayloadValidation(methodToPayload{
 				http.MethodPost: newPayload[RebaseMrRequest],
@@ -47,12 +79,12 @@ func TestRebaseHandler(t *testing.T) {
 			withMethodCheck(http.MethodPost),
 		)
 		data := getSuccessData(t, svc, request)
-		assert(t, data.Message, "MR rebased successfully (skipping CI)")
+		assert(t, data.Message, "MR rebased on server (skipping CI)")
 	})
 	t.Run("Handles errors from Gitlab client", func(t *testing.T) {
 		request := makeRequest(t, http.MethodPost, "/mr/rebase", testRebaseMrPayload)
 		svc := middleware(
-			mergeRequestRebaserService{testProjectData, fakeMergeRequestRebaser{testBase{errFromGitlab: true}}},
+			mergeRequestRebaserService{testProjectData, &fakeMergeRequestRebaserClient{testBase: testBase{errFromGitlab: true}}},
 			withMr(testProjectData, fakeMergeRequestLister{}),
 			withPayloadValidation(methodToPayload{
 				http.MethodPost: newPayload[RebaseMrRequest],
@@ -65,7 +97,7 @@ func TestRebaseHandler(t *testing.T) {
 	t.Run("Handles non-200s from Gitlab", func(t *testing.T) {
 		request := makeRequest(t, http.MethodPost, "/mr/rebase", testRebaseMrPayload)
 		svc := middleware(
-			mergeRequestRebaserService{testProjectData, fakeMergeRequestRebaser{testBase{status: http.StatusSeeOther}}},
+			mergeRequestRebaserService{testProjectData, &fakeMergeRequestRebaserClient{testBase: testBase{status: http.StatusSeeOther}}},
 			withMr(testProjectData, fakeMergeRequestLister{}),
 			withPayloadValidation(methodToPayload{
 				http.MethodPost: newPayload[RebaseMrRequest],

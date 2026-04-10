@@ -8,7 +8,6 @@ local u = require("gitlab.utils")
 local state = require("gitlab.state")
 local hunks = require("gitlab.hunks")
 local async = require("diffview.async")
-local diffview_lib = require("diffview.lib")
 
 local M = {
   is_open = false,
@@ -59,15 +58,15 @@ M.open = function()
     end
   end
 
-  vim.api.nvim_command(string.format("%s %s..%s", diffview_open_command, diff_refs.base_sha, state.INFO.source_branch))
+  vim.api.nvim_command(string.format("%s %s..%s", diffview_open_command, diff_refs.base_sha, diff_refs.head_sha))
 
   M.is_open = true
-  local cur_view = diffview_lib.get_current_view()
-  if cur_view == nil then
+  M.diffview = require("diffview.lib").get_current_view()
+  if M.diffview == nil then
     u.notify("Could not find Diffview view", vim.log.levels.ERROR)
     return
   end
-  M.diffview_layout = cur_view.cur_layout
+  M.diffview_layout = M.diffview.cur_layout
   M.tabnr = vim.api.nvim_get_current_tabpage()
 
   if state.settings.discussion_diagnostic ~= nil or state.settings.discussion_sign ~= nil then
@@ -102,9 +101,30 @@ end
 
 -- Closes the reviewer and cleans up
 M.close = function()
-  vim.cmd("DiffviewClose")
+  if M.tabnr ~= nil and vim.api.nvim_tabpage_is_valid(M.tabnr) then
+    vim.cmd.tabclose(vim.api.nvim_tabpage_get_number(M.tabnr))
+  end
   local discussions = require("gitlab.actions.discussions")
   discussions.close()
+end
+
+---Loads new INFO state from Gitlab, then if diffview.api is available applies the new diff refs to
+---the existing diffview, otherwise closes and re-opens the reviewer.
+M.reload = function()
+  state.load_new_state("info", function()
+    state.load_new_state("revisions", function()
+      local has_api, api = pcall(require, "diffview.api")
+      if has_api then
+        api.set_revs(
+          string.format("%s..%s", state.INFO.diff_refs.base_sha, state.INFO.diff_refs.head_sha),
+          { view = M.diffview }
+        )
+      else
+        M.close()
+        M.open()
+      end
+    end)
+  end)
 end
 
 --- Jumps to the location provided in the reviewer window
@@ -121,13 +141,13 @@ M.jump = function(file_name, old_file_name, line_number, new_buffer)
     return
   end
   vim.api.nvim_set_current_tabpage(M.tabnr)
-  local view = diffview_lib.get_current_view()
-  if view == nil then
+
+  if M.diffview == nil then
     u.notify("Could not find Diffview view", vim.log.levels.ERROR)
     return
   end
 
-  local files = view.panel:ordered_file_list()
+  local files = M.diffview.panel:ordered_file_list()
   local file = List.new(files):find(function(f)
     local oldpath = f.oldpath ~= nil and f.oldpath or f.path
     return new_buffer and f.path == file_name or oldpath == old_file_name
@@ -139,9 +159,9 @@ M.jump = function(file_name, old_file_name, line_number, new_buffer)
     )
     return
   end
-  async.await(view:set_file(file))
+  async.await(M.diffview:set_file(file))
 
-  local layout = view.cur_layout
+  local layout = M.diffview.cur_layout
   local number_of_lines
   if new_buffer then
     layout.b:focus()
@@ -164,11 +184,10 @@ end
 ---@param current_win integer The ID of the currently focused window
 ---@return DiffviewInfo | nil
 M.get_reviewer_data = function(current_win)
-  local view = diffview_lib.get_current_view()
-  if view == nil then
+  if M.diffview == nil then
     return
   end
-  local layout = view.cur_layout
+  local layout = M.diffview.cur_layout
   local old_win = u.get_window_id_by_buffer_id(layout.a.file.bufnr)
   local new_win = u.get_window_id_by_buffer_id(layout.b.file.bufnr)
 
@@ -218,8 +237,7 @@ end
 ---@param current_win integer The ID of the currently focused window
 ---@return boolean
 M.is_new_sha_focused = function(current_win)
-  local view = diffview_lib.get_current_view()
-  local layout = view.cur_layout
+  local layout = M.diffview.cur_layout
   local b_win = u.get_window_id_by_buffer_id(layout.b.file.bufnr)
   local a_win = u.get_window_id_by_buffer_id(layout.a.file.bufnr)
   if a_win ~= current_win and b_win ~= current_win then
@@ -231,8 +249,7 @@ end
 
 ---Get currently shown file data
 M.get_current_file_data = function()
-  local view = diffview_lib.get_current_view()
-  return view and view.panel and view.panel.cur_file
+  return M.diffview and M.diffview.panel and M.diffview.panel.cur_file
 end
 
 ---Get currently shown file path

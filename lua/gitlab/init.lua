@@ -94,6 +94,9 @@ return {
   review = async.sequence({ u.merge(info, { refresh = true }), revisions, user }, function()
     reviewer.open()
   end),
+  reload_review = function()
+    reviewer.reload()
+  end,
   close_review = function()
     reviewer.close()
   end,

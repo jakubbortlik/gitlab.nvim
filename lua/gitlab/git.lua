@@ -17,6 +17,26 @@ local run_system = function(command)
   return result, nil
 end
 
+---Function to run when an async system call finishes. Receives the command's stdout as result when
+---successful, or the command's stderr as err when unsuccessful.
+---@alias OnExitCallback fun(result:string|nil, err:string|nil)
+
+---Runs a system command asynchronously
+---@param command string[]
+---@param on_exit OnExitCallback
+local run_system_async = function(command, on_exit)
+  vim.system(command, { text = true }, function(result)
+    vim.schedule(function()
+      if result.code ~= 0 then
+        require("gitlab.utils").notify(result.stderr, vim.log.levels.ERROR)
+        on_exit(nil, result.stderr)
+      else
+        on_exit(vim.fn.trim(result.stdout), nil)
+      end
+    end)
+  end)
+end
+
 ---Returns all branches for the current repository
 ---@param args table|nil extra arguments for `git branch`
 ---@return string|nil, string|nil
@@ -26,7 +46,7 @@ M.branches = function(args)
   return run_system(u.combine({ "git", "branch" }, args or {}))
 end
 
----Returns true if the working tree hasn't got any changes that haven't been commited
+---Returns true if the working tree hasn't got any changes that haven't been committed
 ---@return boolean, string|nil
 M.has_clean_tree = function()
   local changes, err = run_system({ "git", "status", "--short", "--untracked-files=no" })
@@ -66,7 +86,7 @@ end
 
 ---Fetch the remote branch
 ---@param remote_branch string The name of the repo and branch to fetch (e.g., "origin/some_branch")
----@return boolean fetch_successfull False if an error occurred while fetching, true otherwise.
+---@return boolean fetch_successful False if an error occurred while fetching, true otherwise.
 M.fetch_remote_branch = function(remote_branch)
   local remote, branch = string.match(remote_branch, "([^/]+)/(.*)")
   local _, fetch_err = run_system({ "git", "fetch", remote, branch })
@@ -107,32 +127,24 @@ M.get_ahead_behind = function(current_branch, remote_branch)
   return tonumber(ahead), tonumber(behind)
 end
 
----Pull the branch from remote
----@param remote string
----@param branch string
----@param opts string[]?
----@return boolean success True if the branch has been pulled successfully
-M.pull = function(remote, branch, opts)
+---Pull a branch asynchronously from a remote and execute callback on exit.
+---@param remote string The remote from which to pull.
+---@param branch string The branch to pull.
+---@param on_exit OnExitCallback The callback to execute when the command finishes.
+---@param args string[]? Extra arguments passed to the `git pull` command.
+M.pull_async = function(remote, branch, on_exit, args)
   local current_branch = M.get_current_branch()
   if not current_branch then
-    return false
+    return
   end
   if current_branch ~= branch then
-    local u = require("gitlab.utils")
-    u.notify("Cannot pull. Remote branch is not the same as current branch", vim.log.levels.ERROR)
-    return false
+    require("gitlab.utils").notify("Cannot pull. Remote branch is not the same as current branch", vim.log.levels.ERROR)
+    return
   end
-  local args = { "git", "pull" }
-  for _, opt in ipairs(opts or {}) do
-    table.insert(args, opt)
-  end
-  table.insert(args, remote)
-  table.insert(args, branch)
-  local _, err = run_system(args)
-  if err ~= nil then
-    return false
-  end
-  return true
+  local cmd = { "git", "pull" }
+  vim.list_extend(cmd, args or {})
+  vim.list_extend(cmd, { remote, branch })
+  run_system_async(cmd, on_exit)
 end
 
 ---Return the name of the current branch or nil if it can't be retrieved
