@@ -33,7 +33,7 @@ OVERVIEW                                                *gitlab.nvim.overview*
 This Neovim plugin is designed to make it easy to review Gitlab MRs from within
 the editor. This means you can do things like:
 
-- Create, approve, and merge MRs for the current branch
+- Create, approve, rebase, and merge MRs for the current branch
 - Read and edit an MR description
 - Add or remove reviewers and assignees
 - Resolve, reply to, and unresolve discussion threads
@@ -625,6 +625,19 @@ this command to work.
     require("gitlab").merge({ squash = false, delete_branch = false })
 <
 See |gitlab.nvim.merge| for more help on this function.
+
+
+REBASING AN MR                                      *gitlab.nvim.rebasing-an-mr*
+
+The `rebase` action will rebase an MR on the server, wait for the rebase to
+take effect and then update the local reviewer state. The MR must be in a
+"rebasable" state for this command to work, i.e., the worktree must be clean
+and there must be no conflicts.
+>lua
+    require("gitlab").rebase()
+    require("gitlab").rebase({ skip_ci = true, force = true })
+<
+See |gitlab.nvim.rebase| for more help on this function.
 
 
 CREATING AN MR                                    *gitlab.nvim.creating-an-mr*
