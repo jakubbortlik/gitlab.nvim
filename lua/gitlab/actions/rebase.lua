@@ -3,7 +3,12 @@
 
 local M = {}
 
-local can_rebase = function()
+---@class RebaseOpts
+---@field skip_ci boolean? If true, a CI pipeline is not created.
+---@field force boolean? If true, MR is rebased even if MR already is rebased.
+
+---@param opts RebaseOpts
+local can_rebase = function(opts)
   local u = require("gitlab.utils")
   -- Check if there are local changes (we wouldn't be able to run `git pull` after rebasing)
   local has_clean_tree, err = require("gitlab.git").has_clean_tree()
@@ -14,12 +19,27 @@ local can_rebase = function()
     u.notify("Error while inspecting working tree", vim.log.levels.ERROR)
     return false
   end
+
+  local state = require("gitlab.state")
+
+  local already_rebased = vim.iter(state.MERGEABILITY):find(function(check)
+    return check.identifier == "NEED_REBASE" and check.status == "SUCCESS"
+  end)
+  if already_rebased and not opts.force then
+    u.notify("MR is already rebased", vim.log.levels.ERROR)
+    return false
+  end
+
+  local has_conflicts = vim.iter(state.MERGEABILITY):find(function(check)
+    return check.identifier == "CONFLICT" and check.status ~= "SUCCESS"
+  end)
+  if has_conflicts then
+    u.notify("Rebase locally, resolve all conflicts, then push the branch", vim.log.levels.ERROR)
+    return false
+  end
+
   return true
 end
-
----@class RebaseOpts
----@field skip_ci boolean? If true, a CI pipeline is not created.
----@field force boolean? If true, MR is rebased even if MR already is rebased.
 
 ---Callback to run after the async `git pull` call exits
 ---@param result string|nil The stdout from the `git pull` call if any.
@@ -58,23 +78,12 @@ end
 ---@param opts RebaseOpts
 M.rebase = function(opts)
   opts = opts or {}
-  if not can_rebase() then
+
+  if not can_rebase(opts) then
     return
   end
 
-  local state = require("gitlab.state")
-
-  if not opts.force then
-    local need_rebase_check = vim.iter(state.MERGEABILITY):find(function(c)
-      return c.identifier == "NEED_REBASE"
-    end)
-    if need_rebase_check and need_rebase_check.status == "SUCCESS" then
-      require("gitlab.utils").notify("MR is already rebased", vim.log.levels.ERROR)
-      return
-    end
-  end
-
-  local rebase_body = { skip_ci = state.settings.rebase_mr.skip_ci }
+  local rebase_body = { skip_ci = require("gitlab.state").settings.rebase_mr.skip_ci }
   if opts.skip_ci ~= nil then
     rebase_body.skip_ci = opts.skip_ci
   end
