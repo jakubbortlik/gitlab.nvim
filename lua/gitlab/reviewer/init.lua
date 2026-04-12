@@ -12,7 +12,7 @@ local async = require("diffview.async")
 local M = {
   is_open = false,
   bufnr = nil,
-  tabnr = nil,
+  tabid = nil,
   stored_win = nil,
   buf_winids = {},
 }
@@ -67,7 +67,7 @@ M.open = function()
     return
   end
   M.diffview_layout = M.diffview.cur_layout
-  M.tabnr = vim.api.nvim_get_current_tabpage()
+  M.tabid = vim.api.nvim_get_current_tabpage()
 
   if state.settings.discussion_diagnostic ~= nil or state.settings.discussion_sign ~= nil then
     u.notify(
@@ -78,13 +78,13 @@ M.open = function()
 
   -- Register Diffview hook for close event to set tab page # to nil
   local on_diffview_closed = function(view)
-    if view.tabpage == M.tabnr then
-      M.tabnr = nil
+    if view.tabpage == M.tabid then
+      M.tabid = nil
       require("gitlab.actions.discussions.winbar").cleanup_timer()
     end
   end
   require("diffview.config").user_emitter:on("view_closed", function(_, args)
-    if M.tabnr == args.tabpage then
+    if M.tabid == args.tabpage then
       M.is_open = false
       on_diffview_closed(args)
     end
@@ -101,8 +101,8 @@ end
 
 -- Closes the reviewer and cleans up
 M.close = function()
-  if M.tabnr ~= nil and vim.api.nvim_tabpage_is_valid(M.tabnr) then
-    vim.cmd.tabclose(vim.api.nvim_tabpage_get_number(M.tabnr))
+  if M.tabid ~= nil and vim.api.nvim_tabpage_is_valid(M.tabid) then
+    vim.cmd.tabclose(vim.api.nvim_tabpage_get_number(M.tabid))
   end
   local discussions = require("gitlab.actions.discussions")
   discussions.close()
@@ -136,11 +136,11 @@ M.jump = function(file_name, old_file_name, line_number, new_buffer)
   -- Draft comments don't have `old_file_name` set
   old_file_name = old_file_name or file_name
 
-  if M.tabnr == nil then
+  if M.tabid == nil then
     u.notify("Can't jump to Diffvew. Is it open?", vim.log.levels.ERROR)
     return
   end
-  vim.api.nvim_set_current_tabpage(M.tabnr)
+  vim.api.nvim_set_current_tabpage(M.tabid)
 
   if M.diffview == nil then
     u.notify("Could not find Diffview view", vim.log.levels.ERROR)
@@ -288,7 +288,7 @@ M.set_callback_for_file_changed = function(callback)
     pattern = { "DiffviewDiffBufWinEnter" },
     group = group,
     callback = function(...)
-      if M.tabnr == vim.api.nvim_get_current_tabpage() then
+      if M.tabid == vim.api.nvim_get_current_tabpage() then
         callback(...)
       end
     end,
@@ -303,7 +303,7 @@ M.set_callback_for_buf_read = function(callback)
     pattern = { "DiffviewDiffBufRead" },
     group = group,
     callback = function(...)
-      if vim.api.nvim_get_current_tabpage() == M.tabnr then
+      if vim.api.nvim_get_current_tabpage() == M.tabid then
         callback(...)
       end
     end,
@@ -318,7 +318,7 @@ M.set_callback_for_reviewer_leave = function(callback)
     pattern = { "DiffviewViewLeave", "DiffviewViewClosed" },
     group = group,
     callback = function(...)
-      if vim.api.nvim_get_current_tabpage() == M.tabnr then
+      if vim.api.nvim_get_current_tabpage() == M.tabid then
         callback(...)
       end
     end,
@@ -334,7 +334,7 @@ M.set_callback_for_reviewer_enter = function(callback)
     pattern = { "DiffviewViewEnter", "DiffviewViewOpened" },
     group = group,
     callback = function(...)
-      if vim.api.nvim_get_current_tabpage() == M.tabnr then
+      if vim.api.nvim_get_current_tabpage() == M.tabid then
         callback(...)
       end
     end,

@@ -47,7 +47,7 @@ end
 local on_pull_exit = function(result, err)
   if result ~= nil then
     local reviewer = require("gitlab.reviewer")
-    if reviewer.tabnr ~= nil then
+    if reviewer.tabid ~= nil then
       reviewer.reload()
     end
   elseif err ~= nil then
