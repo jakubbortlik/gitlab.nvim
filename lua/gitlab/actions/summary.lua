@@ -148,6 +148,7 @@ M.build_info_lines = function()
     branch = { title = "Branch", content = info.source_branch },
     labels = { title = "Labels", content = table.concat(info.labels, ", ") },
     target_branch = { title = "Target Branch", content = info.target_branch },
+    auto_merge = { title = "Auto-merge", content = (info.merge_when_pipeline_succeeds and "Yes" or "No") },
     delete_branch = {
       title = "Delete Source Branch",
       content = (info.force_remove_source_branch and "Yes" or "No"),

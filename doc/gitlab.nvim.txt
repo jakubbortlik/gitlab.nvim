@@ -9,7 +9,7 @@ Table of Contents                              *gitlab.nvim.table-of-contents*
   - Connecting to Gitlab                    |gitlab.nvim.connecting-to-gitlab|
   - Configuring the Plugin                |gitlab.nvim.configuring-the-plugin|
   - Usage                                                  |gitlab.nvim.usage|
-  - The Summary view                            |gitlab.nvim.the-summary-view|
+  - The Summary view                                |gitlab.nvim.summary-view|
   - Reviewing an MR                              |gitlab.nvim.reviewing-an-mr|
   - Temporary registers                           |gitlab.nvim.temp-registers|
   - Discussions and Notes                  |gitlab.nvim.discussions-and-notes|
@@ -182,6 +182,7 @@ you call this function with no values the defaults will be used:
           approve = "glA", -- Approve MR
           revoke = "glR", -- Revoke MR approval
           merge = "glM", -- Merge the feature branch to the target branch and close MR
+          set_auto_merge = "glm", -- Set MR to merge automatically when the pipeline succeeds
           create_mr = "glC", -- Create a new MR for currently checked-out feature branch
           choose_merge_request = "glc", -- Chose MR for review (if necessary check out the feature branch)
           start_review = "glS", -- Start review for the currently checked-out branch
@@ -311,6 +312,7 @@ you call this function with no values the defaults will be used:
           "pipeline",
           "branch",
           "target_branch",
+          "auto_merge",
           "delete_branch",
           "squash",
           "labels",
@@ -418,7 +420,7 @@ Then open Neovim. To begin, try running the `summary` command or the `review`
 command.
 
 
-THE SUMMARY VIEW                                *gitlab.nvim.the-summary-view*
+THE SUMMARY VIEW                                    *gitlab.nvim.summary-view*
 
 The `summary` action will open the MR title and description:
 >lua
@@ -1061,18 +1063,25 @@ Copies the URL of the current MR to system clipboard.
                                                                 *gitlab.nvim.merge*
 gitlab.merge({opts}) ~
 
-Merges the merge request into the target branch. When run without any
-arguments, the `merge` action will respect the "Squash commits" and "Delete
-source branch" settings set by `require("gitlab").create_mr()` or set in
-Gitlab online. You can see the current settings in the Summary view, see
-|gitlab.nvim.the-summary-view|.
+Merges a mergeable merge request into the target branch. The behaviour can be
+configured with the `opts` parameter. By default, the `merge` action respects
+the "Auto-merge" setting, and the "Squash commits" and "Delete source branch"
+settings set by `require("gitlab").create_mr()` (or in Gitlab's "Edit merge
+request" page). You can see the current settings in the Summary view, see
+|gitlab.nvim.summary-view|. 
 >lua
   require("gitlab").merge()
-  require("gitlab").merge({ squash = false, delete_branch = true })
+  require("gitlab").merge({
+      auto_merge = true, squash = false, delete_branch = false
+  })
 <
     Parameters: ~
         • {opts}: (table|nil) Keyword arguments that can be used to override
-          default behavior.
+          individual current settings.
+            • {auto_merge}: (bool) If true, the merge request is set to merge
+              automatically when the pipeline succeeds. If false, an immediate
+              merge is attempted. Currently, the plugin doesn't allow
+              cancelling the auto-merge.
             • {delete_branch}: (bool) If true, the source branch will be
               deleted.
             • {squash}: (bool) If true, the commits will be squashed. If
@@ -1120,7 +1129,7 @@ execute and passed the data as an argument.
           with each resource as a key-value pair, with the key being it's
           type.
 
-                                                        *gitlab.nvim.refresh_data*
+                                                                *gitlab.nvim.refresh_data*
 gitlab.refresh_data() ~
 
 Fetches discussion tree data from Gitlab and refreshes the tree views. It can
