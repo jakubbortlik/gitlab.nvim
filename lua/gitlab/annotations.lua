@@ -143,6 +143,9 @@
 ---@field commit_id string  -- This will always be ""
 ---@field line_code string
 ---@field position NotePosition
+
+---@class CreateCommentsOpts Options for the create_comment function.
+---@field with_suggestion boolean When true, paste the default suggestion into the comment buffer.
 ---
 ---
 --- Plugin Settings
