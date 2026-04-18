@@ -12,8 +12,19 @@ local M = {}
 -- tag than the Lua code (exposed via the /version endpoint) then shuts down the server, rebuilds it, and
 -- restarts the server again.
 M.build_and_start = function(callback)
-  M.build(false)
+  if M.build(false) == false then
+    return
+  end
+
+  -- When the user provides their own binary, skip the version check and rebuild cycle.
+  -- The user is responsible for keeping their binary up to date.
+  local user_provided_binary = state.settings.server.binary_provided
+
   M.start(function()
+    if user_provided_binary then
+      callback()
+      return
+    end
     M.get_version(function(version)
       if version.plugin_version ~= version.binary_version then
         M.shutdown(function()
@@ -112,12 +123,14 @@ M.build = function(override)
 
   -- If the user provided a path to the server, don't build it.
   if state.settings.server.binary ~= nil then
+    state.settings.server.binary_provided = true
     local binary_exists = vim.loop.fs_stat(state.settings.server.binary)
     if binary_exists == nil then
       u.notify(
         string.format("The user-provided server path (%s) does not exist.", state.settings.server.binary),
         vim.log.levels.ERROR
       )
+      return false
     end
     return
   end
@@ -128,13 +141,14 @@ M.build = function(override)
   local runtimepath = vim.api.nvim_list_runtime_paths()
   table.insert(runtimepath, 1, datapath)
 
+  local bin_name = u.is_windows() and "server.exe" or "server"
   local bin_folder
   for _, path in ipairs(runtimepath) do
     local ok, err = vim.loop.fs_access(path, "w")
     if err == nil and ok ~= nil and ok then
       bin_folder = path .. u.path_separator .. "gitlab.nvim" .. u.path_separator .. "bin"
       if vim.fn.mkdir(bin_folder, "p") == 1 then
-        state.settings.server.binary = bin_folder .. u.path_separator .. "server"
+        state.settings.server.binary = bin_folder .. u.path_separator .. bin_name
         break
       end
     end
