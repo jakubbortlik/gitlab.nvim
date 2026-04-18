@@ -240,7 +240,8 @@ M.get_version = function(callback)
   local version_output = vim.system({ "git", "describe", "--tags", "--always" }, { cwd = parent_dir }):wait()
   local plugin_version = version_output.code == 0 and vim.trim(version_output.stdout) or "unknown"
 
-  local args = { "--noproxy", "localhost", "-s", "-X", "GET", string.format("localhost:%s/version", state.settings.server.port) }
+  local args =
+    { "--noproxy", "localhost", "-s", "-X", "GET", string.format("localhost:%s/version", state.settings.server.port) }
 
   -- We call the "/version" endpoint here instead of through the regular jobs pattern because earlier versions of the plugin
   -- may not have it. We handle a 404 as an "unknown" version error.
