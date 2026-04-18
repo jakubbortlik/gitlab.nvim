@@ -220,24 +220,12 @@ M.create_comment_layout = function(opts)
   return layout
 end
 
---- This function will open a comment popup in order to create a comment on the changed/updated
---- line in the current MR
+--- Creates a comment on the selected line(s) in the current buffer.
+--- In normal mode comments on the current line.
+--- In visual mode comments on the whole selection.
 M.create_comment = function()
   M.location = Location.new()
   if not M.can_create_comment(false) then
-    return
-  end
-
-  local layout = M.create_comment_layout({ unlinked = false })
-  layout:mount()
-end
-
---- This function will open a multi-line comment popup in order to create a multi-line comment
---- on the changed/updated line in the current MR
-M.create_multiline_comment = function()
-  M.location = Location.new()
-  if not M.can_create_comment(true) then
-    u.press_escape()
     return
   end
 
@@ -394,7 +382,7 @@ M.can_create_comment = function(must_be_visual)
     return false
   end
 
-  -- Check we're in visual mode for code suggestions and multiline comments
+  -- Check we're in visual mode for code suggestions
   if must_be_visual and not u.check_visual_mode() then
     return false
   end
