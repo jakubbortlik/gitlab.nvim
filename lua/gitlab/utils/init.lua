@@ -309,8 +309,8 @@ end
 M.get_longest_string = function(list)
   local longest = 0
   for _, v in pairs(list) do
-    if string.len(v) > longest then
-      longest = string.len(v)
+    if vim.fn.strcharlen(v) > longest then
+      longest = vim.fn.strcharlen(v)
     end
   end
   return longest
@@ -504,9 +504,10 @@ M.read_file = function(file_path, opts)
   return file_contents
 end
 
-M.current_file_path = function()
+-- Returns the root path of the plugin (four levels up from this file: lua/gitlab/utils/init.lua)
+M.get_root_path = function()
   local path = debug.getinfo(1, "S").source:sub(2)
-  return vim.fn.fnamemodify(path, ":p")
+  return vim.fn.fnamemodify(path, ":p:h:h:h:h")
 end
 
 local random = math.random
@@ -666,6 +667,8 @@ end
 M.open_in_browser = function(url)
   if vim.fn.has("mac") == 1 then
     vim.fn.jobstart({ "open", url })
+  elseif vim.fn.has("win32") == 1 then
+    vim.fn.jobstart({ "cmd", "/c", "start", url })
   elseif vim.fn.has("unix") == 1 then
     vim.fn.jobstart({ "xdg-open", url })
   else

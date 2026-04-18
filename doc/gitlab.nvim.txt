@@ -9,7 +9,7 @@ Table of Contents                              *gitlab.nvim.table-of-contents*
   - Connecting to Gitlab                    |gitlab.nvim.connecting-to-gitlab|
   - Configuring the Plugin                |gitlab.nvim.configuring-the-plugin|
   - Usage                                                  |gitlab.nvim.usage|
-  - The Summary view                            |gitlab.nvim.the-summary-view|
+  - The Summary view                                |gitlab.nvim.summary-view|
   - Reviewing an MR                              |gitlab.nvim.reviewing-an-mr|
   - Temporary registers                           |gitlab.nvim.temp-registers|
   - Discussions and Notes                  |gitlab.nvim.discussions-and-notes|
@@ -64,7 +64,7 @@ With Lazy:
       dependencies = {
         "MunifTanjim/nui.nvim",
         "nvim-lua/plenary.nvim",
-        "sindrets/diffview.nvim",
+        "dlyongemallo/diffview.nvim", -- Maintained fork of "sindrets/diffview.nvim".
         "stevearc/dressing.nvim", -- Recommended but not required. Better UI for pickers.
         "nvim-tree/nvim-web-devicons", -- Recommended but not required. Icons in discussion tree.
       },
@@ -81,7 +81,7 @@ And with pckr.nvim:
       requires = {
         "MunifTanjim/nui.nvim",
         "nvim-lua/plenary.nvim",
-        "sindrets/diffview.nvim",
+        "dlyongemallo/diffview.nvim", -- Maintained fork of "sindrets/diffview.nvim".
         "stevearc/dressing.nvim", -- Recommended but not required. Better UI for pickers.
         "nvim-tree/nvim-web-devicons", -- Recommended but not required. Icons in discussion tree.
       },
@@ -144,7 +144,10 @@ Here is the default setup function. All of these values are optional, and if
 you call this function with no values the defaults will be used:
 >lua
     require("gitlab").setup({
-      port = nil, -- The port of the Go server, which runs in the background, if omitted or `nil` the port will be chosen automatically
+      server = {
+        binary = nil, -- The path to the server binary. If omitted or nil, the server will be built
+        port = nil, -- The port of the Go server, which runs in the background. If omitted or `nil` the port will be chosen automatically
+      },
       log_path = vim.fn.stdpath("cache") .. "/gitlab.nvim.log", -- Log path for the Go server
       config_path = nil, -- Custom path for `.gitlab.nvim` file, please read the "Connecting to Gitlab" section
       debug = {
@@ -179,6 +182,7 @@ you call this function with no values the defaults will be used:
           approve = "glA", -- Approve MR
           revoke = "glR", -- Revoke MR approval
           merge = "glM", -- Merge the feature branch to the target branch and close MR
+          set_auto_merge = "glm", -- Set MR to merge automatically when the pipeline succeeds
           create_mr = "glC", -- Create a new MR for currently checked-out feature branch
           choose_merge_request = "glc", -- Chose MR for review (if necessary check out the feature branch)
           start_review = "glS", -- Start review for the currently checked-out branch
@@ -308,10 +312,45 @@ you call this function with no values the defaults will be used:
           "pipeline",
           "branch",
           "target_branch",
+          "auto_merge",
           "delete_branch",
           "squash",
           "labels",
           "web_url",
+          "mergeability_checks", -- See more detailed configuration below
+        },
+        -- Settings for the mergeability checks in the summary view
+        -- https://docs.gitlab.com/api/graphql/reference/#mergeabilitycheckidentifier
+        mergeability_checks = {
+          -- Symbols for individual check statuses. Set values to `false` to hide checks with given status from summary
+          statuses = {
+            SUCCESS = "✅",
+            CHECKING = "🔁",
+            FAILED = "❌",
+            WARNING = "⚠️",
+            INACTIVE = "💤",
+          },
+          -- Descriptions for individual checks. Set values to `false` to hide given checks from summary
+          checks = {
+            CI_MUST_PASS = "Pipeline must succeed",
+            COMMITS_STATUS = "Source branch exists and contains commits",
+            CONFLICT = "Merge conflicts must be resolved",
+            DISCUSSIONS_NOT_RESOLVED = "Open threads must be resolved",
+            DRAFT_STATUS = "Merge request must not be draft",
+            JIRA_ASSOCIATION_MISSING = "Title or description references a Jira issue",
+            LOCKED_LFS_FILES = "All LFS files must be unlocked",
+            LOCKED_PATHS = "All paths must be unlocked",
+            MERGE_REQUEST_BLOCKED = "Merge request is not blocked",
+            MERGE_TIME = "Merge is not blocked due to a scheduled merge time",
+            NEED_REBASE = "Merge request must be rebased, fast-forward merge is not possible",
+            NOT_APPROVED = "All required approvals must be given",
+            NOT_OPEN = "Merge request must be open",
+            REQUESTED_CHANGES = "Change requests must be approved by the requesting user",
+            SECURITY_POLICY_PIPELINE_CHECK = "Security policy pipeline must succeed",
+            SECURITY_POLICY_VIOLATIONS = "Security policies are satisfied",
+            STATUS_CHECKS_MUST_PASS = "External status checks pass",
+            TITLE_REGEX = "Title matches the expected regex",
+          },
         },
       },
       discussion_signs = {
@@ -382,7 +421,7 @@ Then open Neovim. To begin, try running the `summary` command or the `review`
 command.
 
 
-THE SUMMARY VIEW                                *gitlab.nvim.the-summary-view*
+THE SUMMARY VIEW                                    *gitlab.nvim.summary-view*
 
 The `summary` action will open the MR title and description:
 >lua
@@ -678,7 +717,7 @@ by a |motion|.
 Either the operator or the motion can be preceded by a count, so that `3sj` is
 equivalent to `s3j`, and they both create a comment for the current line and
 three more lines downwards. Similarly, both `2s`|ap| and `s2`|ap| create a suggestion
-for two "outer" paragraphs. 
+for two "outer" paragraphs.
 
 The operators force |linewise| visual selection, so they work correctly even
 if the motion itself works |characterwise| (e.g., |i(| for selecting the inner
@@ -1025,18 +1064,25 @@ Copies the URL of the current MR to system clipboard.
                                                                 *gitlab.nvim.merge*
 gitlab.merge({opts}) ~
 
-Merges the merge request into the target branch. When run without any
-arguments, the `merge` action will respect the "Squash commits" and "Delete
-source branch" settings set by `require("gitlab").create_mr()` or set in
-Gitlab online. You can see the current settings in the Summary view, see
-|gitlab.nvim.the-summary-view|.
+Merges a mergeable merge request into the target branch. The behaviour can be
+configured with the `opts` parameter. By default, the `merge` action respects
+the "Auto-merge" setting, and the "Squash commits" and "Delete source branch"
+settings set by `require("gitlab").create_mr()` (or in Gitlab's "Edit merge
+request" page). You can see the current settings in the Summary view, see
+|gitlab.nvim.summary-view|. 
 >lua
   require("gitlab").merge()
-  require("gitlab").merge({ squash = false, delete_branch = true })
+  require("gitlab").merge({
+      auto_merge = true, squash = false, delete_branch = false
+  })
 <
     Parameters: ~
         • {opts}: (table|nil) Keyword arguments that can be used to override
-          default behavior.
+          individual current settings.
+            • {auto_merge}: (bool) If true, the merge request is set to merge
+              automatically when the pipeline succeeds. If false, an immediate
+              merge is attempted. Currently, the plugin doesn't allow
+              cancelling the auto-merge.
             • {delete_branch}: (bool) If true, the source branch will be
               deleted.
             • {squash}: (bool) If true, the commits will be squashed. If
@@ -1084,7 +1130,7 @@ execute and passed the data as an argument.
           with each resource as a key-value pair, with the key being it's
           type.
 
-                                                        *gitlab.nvim.refresh_data*
+                                                                *gitlab.nvim.refresh_data*
 gitlab.refresh_data() ~
 
 Fetches discussion tree data from Gitlab and refreshes the tree views. It can

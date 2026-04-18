@@ -12,19 +12,23 @@ local function create_squash_message_popup()
 end
 
 ---@class MergeOpts
+---@field auto_merge boolean?
 ---@field delete_branch boolean?
 ---@field squash boolean?
 ---@field squash_message string?
 
 ---@param opts MergeOpts
 M.merge = function(opts)
-  local merge_body = { squash = state.INFO.squash, delete_branch = state.INFO.delete_branch }
-  if opts then
-    merge_body.squash = opts.squash ~= nil and opts.squash
-    merge_body.delete_branch = opts.delete_branch ~= nil and opts.delete_branch
+  local merge_body = {
+    auto_merge = state.INFO.merge_when_pipeline_succeeds,
+    squash = state.INFO.squash,
+    delete_branch = state.INFO.force_remove_source_branch,
+  }
+  for key, val in pairs(opts or {}) do
+    merge_body[key] = val
   end
 
-  if state.INFO.detailed_merge_status ~= "mergeable" then
+  if state.INFO.detailed_merge_status ~= "mergeable" and not merge_body.auto_merge then
     u.notify(string.format("MR not mergeable, currently '%s'", state.INFO.detailed_merge_status), vim.log.levels.ERROR)
     return
   end

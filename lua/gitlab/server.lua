@@ -12,8 +12,19 @@ local M = {}
 -- tag than the Lua code (exposed via the /version endpoint) then shuts down the server, rebuilds it, and
 -- restarts the server again.
 M.build_and_start = function(callback)
-  M.build(false)
+  if M.build(false) == false then
+    return
+  end
+
+  -- When the user provides their own binary, skip the version check and rebuild cycle.
+  -- The user is responsible for keeping their binary up to date.
+  local user_provided_binary = state.settings.server.binary_provided
+
   M.start(function()
+    if user_provided_binary then
+      callback()
+      return
+    end
     M.get_version(function(version)
       if version.plugin_version ~= version.binary_version then
         M.shutdown(function()
@@ -30,7 +41,11 @@ end
 
 -- Starts the Go server and call the callback provided
 M.start = function(callback)
-  local port = tonumber(state.settings.port) or 0
+  if state.settings.port ~= nil and state.settings.server.port == nil then
+    state.settings.server.port = state.settings.port
+    u.notify("The setting `port` has been renamed `server.port`", vim.log.levels.WARN)
+  end
+  local port = tonumber(state.settings.server.port) or 0
   local parsed_port = nil
   local callback_called = false
 
@@ -51,7 +66,7 @@ M.start = function(callback)
     settings = settings:gsub('"', '\\"')
   end
 
-  local command = string.format('"%s" "%s"', state.settings.bin, settings)
+  local command = string.format('"%s" "%s"', state.settings.server.binary, settings)
 
   local job_id = vim.fn.jobstart(command, {
     on_stdout = function(_, data)
@@ -61,7 +76,7 @@ M.start = function(callback)
           port = line:match("Server started on port:%s+(%d+)")
           if port ~= nil then
             parsed_port = port
-            state.settings.port = port
+            state.settings.server.port = port
             break
           end
         end
@@ -104,27 +119,62 @@ end
 
 -- Builds the Go binary with the current Git tag.
 M.build = function(override)
-  local file_path = u.current_file_path()
-  local parent_dir = vim.fn.fnamemodify(file_path, ":h:h:h:h")
+  state.settings.root_path = u.get_root_path()
 
-  local bin_name = u.is_windows() and "bin.exe" or "bin"
-  state.settings.root_path = parent_dir
-  state.settings.bin = parent_dir .. u.path_separator .. "cmd" .. u.path_separator .. bin_name
+  -- If the user provided a path to the server, don't build it.
+  if state.settings.server.binary ~= nil then
+    state.settings.server.binary_provided = true
+    local binary_exists = vim.loop.fs_stat(state.settings.server.binary)
+    if binary_exists == nil then
+      u.notify(
+        string.format("The user-provided server path (%s) does not exist.", state.settings.server.binary),
+        vim.log.levels.ERROR
+      )
+      return false
+    end
+    return
+  end
+
+  -- If the user did not provide a path, we build it and place it in either the data path, or the
+  -- first writable path we find in the runtime.
+  local datapath = vim.fn.stdpath("data")
+  local runtimepath = vim.api.nvim_list_runtime_paths()
+  table.insert(runtimepath, 1, datapath)
+
+  local bin_name = u.is_windows() and "server.exe" or "server"
+  local bin_folder
+  for _, path in ipairs(runtimepath) do
+    local ok, err = vim.loop.fs_access(path, "w")
+    if err == nil and ok ~= nil and ok then
+      bin_folder = path .. u.path_separator .. "gitlab.nvim" .. u.path_separator .. "bin"
+      if vim.fn.mkdir(bin_folder, "p") == 1 then
+        state.settings.server.binary = bin_folder .. u.path_separator .. bin_name
+        break
+      end
+    end
+  end
+
+  if state.settings.server.binary == nil then
+    u.notify("Could not find a writable folder in the runtime path to save the server to.", vim.log.levels.ERROR)
+    return
+  end
 
   if not override then
-    local binary_exists = vim.loop.fs_stat(state.settings.bin)
+    local binary_exists = vim.loop.fs_stat(state.settings.server.binary)
     if binary_exists ~= nil then
       return
     end
   end
 
-  local version_output = vim.system({ "git", "describe", "--tags", "--always" }, { cwd = parent_dir }):wait()
+  local version_output = vim
+    .system({ "git", "describe", "--tags", "--always" }, { cwd = state.settings.root_path })
+    :wait()
   local version = version_output.code == 0 and vim.trim(version_output.stdout) or "unknown"
 
   local ldflags = string.format("-X main.Version=%s", version)
   local res = vim
     .system(
-      { "go", "build", "-ldflags", ldflags, "-o", bin_name },
+      { "go", "build", "-buildvcs=false", "-ldflags", ldflags, "-o", state.settings.server.binary },
       { cwd = state.settings.root_path .. u.path_separator .. "cmd" }
     )
     :wait()
@@ -133,6 +183,12 @@ M.build = function(override)
     u.notify(string.format("Failed to install with status code %d:\n%s", res.code, res.stderr), vim.log.levels.ERROR)
     return false
   end
+
+  local Path = require("plenary.path")
+  local src = Path:new(state.settings.root_path .. u.path_separator .. "cmd" .. u.path_separator .. "config")
+  local dest = Path:new(bin_folder .. u.path_separator .. "config")
+  src:copy({ destination = dest, recursive = true, override = true })
+
   u.notify("Installed successfully!", vim.log.levels.INFO)
   return true
 end
@@ -179,13 +235,13 @@ M.get_version = function(callback)
     u.notify("Gitlab server not running", vim.log.levels.ERROR)
     return nil
   end
-  local file_path = u.current_file_path()
-  local parent_dir = vim.fn.fnamemodify(file_path, ":h:h:h:h")
+  local parent_dir = u.get_root_path()
 
   local version_output = vim.system({ "git", "describe", "--tags", "--always" }, { cwd = parent_dir }):wait()
   local plugin_version = version_output.code == 0 and vim.trim(version_output.stdout) or "unknown"
 
-  local args = { "-s", "-X", "GET", string.format("localhost:%s/version", state.settings.port) }
+  local args =
+    { "--noproxy", "localhost", "-s", "-X", "GET", string.format("localhost:%s/version", state.settings.server.port) }
 
   -- We call the "/version" endpoint here instead of through the regular jobs pattern because earlier versions of the plugin
   -- may not have it. We handle a 404 as an "unknown" version error.

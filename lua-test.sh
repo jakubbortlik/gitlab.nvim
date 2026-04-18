@@ -10,7 +10,7 @@ PLUGINS_FOLDER="tests/plugins"
 PLUGINS=(
   "https://github.com/MunifTanjim/nui.nvim"
   "https://github.com/nvim-lua/plenary.nvim"
-  "https://github.com/sindrets/diffview.nvim"
+  "https://github.com/dlyongemallo/diffview.nvim"
 )
 
 if ! command -v luarocks >/dev/null 2>&1; then
@@ -41,4 +41,4 @@ done
 
 # Run tests
 echo "Running tests with Neovim..."
-nvim -u NONE -U NONE -N -i NONE -l tests/init.lua "$@"
+LC_TIME=en_US.UTF-8 nvim -u NONE -U NONE -N -i NONE -l tests/init.lua "$@"

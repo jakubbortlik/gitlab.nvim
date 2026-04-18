@@ -40,7 +40,7 @@ With <a href="https://github.com/folke/lazy.nvim">Lazy</a>:
   dependencies = {
     "MunifTanjim/nui.nvim",
     "nvim-lua/plenary.nvim",
-    "sindrets/diffview.nvim",
+    "dlyongemallo/diffview.nvim", -- Maintained fork of "sindrets/diffview.nvim".
     "stevearc/dressing.nvim", -- Recommended but not required. Better UI for pickers.
     "nvim-tree/nvim-web-devicons", -- Recommended but not required. Icons in discussion tree.
   },
@@ -59,7 +59,7 @@ And with <a href="https://github.com/lewis6991/pckr.nvim">pckr.nvim</a>:
   requires = {
     "MunifTanjim/nui.nvim",
     "nvim-lua/plenary.nvim",
-    "sindrets/diffview.nvim",
+    "dlyongemallo/diffview.nvim", -- Maintained fork of "sindrets/diffview.nvim".
     "stevearc/dressing.nvim", -- Recommended but not required. Better UI for pickers.
     "nvim-tree/nvim-web-devicons", -- Recommended but not required. Icons in discussion tree.
   },
@@ -72,6 +72,8 @@ And with <a href="https://github.com/lewis6991/pckr.nvim">pckr.nvim</a>:
 ```
 
 Add `branch = "develop",` to your configuration if you want to use the (possibly unstable) development version of `gitlab.nvim`.
+
+`gitlab.nvim` uses the `diffview.nvim` plugin for showing the diffs in a MR. We recommend using [dlyongemallo's](https://github.com/dlyongemallo/diffview.nvim) fork which is the de-facto maintained version of the plugin with many fixes and improvements (e.g., marking files as viewed).
 
 ## Contributing
 
@@ -140,6 +142,7 @@ glrd	Delete reviewer
 glA	Approve MR
 glR	Revoke MR approval
 glM	Merge the feature branch to the target branch and close MR
+glm	Set MR to merge automatically when the pipeline succeeds
 glC	Create a new MR for currently checked-out feature branch
 glc	Chose MR for review
 glS	Start review for the currently checked-out branch

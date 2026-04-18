@@ -8,6 +8,7 @@ import (
 )
 
 type AcceptMergeRequestRequest struct {
+	AutoMerge     bool   `json:"auto_merge"`
 	DeleteBranch  bool   `json:"delete_branch"`
 	SquashMessage string `json:"squash_message"`
 	Squash        bool   `json:"squash"`
@@ -27,6 +28,7 @@ func (a mergeRequestAccepterService) ServeHTTP(w http.ResponseWriter, r *http.Re
 	payload := r.Context().Value(payload("payload")).(*AcceptMergeRequestRequest)
 
 	opts := gitlab.AcceptMergeRequestOptions{
+		AutoMerge:                &payload.AutoMerge,
 		Squash:                   &payload.Squash,
 		ShouldRemoveSourceBranch: &payload.DeleteBranch,
 	}
@@ -47,7 +49,13 @@ func (a mergeRequestAccepterService) ServeHTTP(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response := SuccessResponse{Message: "MR merged successfully"}
+	var message string
+	if payload.AutoMerge {
+		message = "MR set to be merged when all checks pass"
+	} else {
+		message = "MR merged successfully"
+	}
+	response := SuccessResponse{Message: message}
 
 	w.WriteHeader(http.StatusOK)
 

@@ -32,6 +32,7 @@ type Client struct {
 	gitlab.UsersServiceInterface
 	gitlab.DraftNotesServiceInterface
 	gitlab.ProjectMarkdownUploadsServiceInterface
+	gitlab.GraphQLInterface
 }
 
 /* NewClient parses and validates the project settings and initializes the Gitlab client. */
@@ -100,6 +101,7 @@ func NewClient() (*Client, error) {
 		client.Users,
 		client.DraftNotes,
 		client.ProjectMarkdownUploads,
+		client.GraphQL,
 	}, nil
 }
 

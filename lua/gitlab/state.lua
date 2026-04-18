@@ -3,16 +3,17 @@
 -- This module is also responsible for ensuring that the state of the plugin
 -- is valid via dependencies
 
-local git = require("gitlab.git")
 local u = require("gitlab.utils")
 local List = require("gitlab.utils.list")
-local M = {}
-
-M.emoji_map = nil
+local M = {
+  emoji_map = nil,
+  ahead_behind = { nil, nil },
+}
 
 ---Returns a gitlab token, and a gitlab URL. Used to connect to gitlab.
 ---@return string|nil, string|nil, string|nil
 M.default_auth_provider = function()
+  local git = require("gitlab.git")
   local base_path, err = M.settings.config_path, nil
   if base_path == nil then
     base_path, err = git.base_dir()
@@ -45,7 +46,10 @@ end
 M.settings = {
   auth_provider = M.default_auth_provider,
   file_separator = u.path_separator,
-  port = nil, -- choose random port
+  server = {
+    binary = nil,
+    port = nil,
+  },
   debug = {
     request = false,
     response = false,
@@ -81,6 +85,7 @@ M.settings = {
       approve = "glA",
       revoke = "glR",
       merge = "glM",
+      set_auto_merge = "glm",
       create_mr = "glC",
       choose_merge_request = "glc",
       start_review = "glS",
@@ -214,10 +219,41 @@ M.settings = {
       "pipeline",
       "branch",
       "target_branch",
+      "auto_merge",
       "delete_branch",
       "squash",
       "labels",
       "web_url",
+      "mergeability_checks",
+    },
+  },
+  mergeability_checks = {
+    statuses = {
+      SUCCESS = "✅",
+      CHECKING = "🔁",
+      FAILED = "❌",
+      WARNING = "⚠️",
+      INACTIVE = "💤",
+    },
+    checks = {
+      CI_MUST_PASS = "Pipeline must succeed",
+      COMMITS_STATUS = "Source branch exists and contains commits",
+      CONFLICT = "Merge conflicts must be resolved",
+      DISCUSSIONS_NOT_RESOLVED = "Open threads must be resolved",
+      DRAFT_STATUS = "Merge request must not be draft",
+      JIRA_ASSOCIATION_MISSING = "Title or description references a Jira issue",
+      LOCKED_LFS_FILES = "All LFS files must be unlocked",
+      LOCKED_PATHS = "All paths must be unlocked",
+      MERGE_REQUEST_BLOCKED = "Merge request is not blocked",
+      MERGE_TIME = "Merge is not blocked due to a scheduled merge time",
+      NEED_REBASE = "Merge request must be rebased, fast-forward merge is not possible",
+      NOT_APPROVED = "All required approvals must be given",
+      NOT_OPEN = "Merge request must be open",
+      REQUESTED_CHANGES = "Change requests must be approved by the requesting user",
+      SECURITY_POLICY_PIPELINE_CHECK = "Security policy pipeline must succeed",
+      SECURITY_POLICY_VIOLATIONS = "Security policies are satisfied",
+      STATUS_CHECKS_MUST_PASS = "External status checks pass",
+      TITLE_REGEX = "Title matches the expected regex",
     },
   },
   discussion_signs = {
@@ -389,6 +425,12 @@ M.set_global_keymaps = function()
     end, { desc = "Merge MR", nowait = keymaps.global.merge_nowait })
   end
 
+  if keymaps.global.set_auto_merge then
+    vim.keymap.set("n", keymaps.global.set_auto_merge, function()
+      require("gitlab").merge({ auto_merge = true })
+    end, { desc = "Set MR to auto-merge", nowait = keymaps.global.set_auto_merge_nowait })
+  end
+
   if keymaps.global.copy_mr_url then
     vim.keymap.set("n", keymaps.global.copy_mr_url, function()
       require("gitlab").copy_mr_url()
@@ -465,6 +507,12 @@ M.dependencies = {
     endpoint = "/mr/info",
     key = "info",
     state = "INFO",
+    refresh = false,
+  },
+  mergeability = {
+    endpoint = "/mr/info/mergeability",
+    key = "mergeability_checks",
+    state = "MERGEABILITY",
     refresh = false,
   },
   latest_pipeline = {

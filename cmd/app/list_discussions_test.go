@@ -127,17 +127,6 @@ func TestListDiscussions(t *testing.T) {
 		data, _ := getFailData(t, svc, request)
 		checkErrorFromGitlab(t, data, "Could not list discussions")
 	})
-	t.Run("Handles non-200s from Gitlab client", func(t *testing.T) {
-		request := makeRequest(t, http.MethodPost, "/mr/discussions/list", DiscussionsRequest{Blacklist: []string{}})
-		svc := middleware(
-			discussionsListerService{testProjectData, fakeDiscussionsLister{testBase: testBase{status: http.StatusSeeOther}}},
-			withMr(testProjectData, fakeMergeRequestLister{}),
-			withPayloadValidation(methodToPayload{http.MethodPost: newPayload[DiscussionsRequest]}),
-			withMethodCheck(http.MethodPost),
-		)
-		data, _ := getFailData(t, svc, request)
-		checkNon200(t, data, "Could not list discussions", "/mr/discussions/list")
-	})
 	t.Run("Handles error from emoji service", func(t *testing.T) {
 		request := makeRequest(t, http.MethodPost, "/mr/discussions/list", DiscussionsRequest{Blacklist: []string{}})
 		svc := middleware(

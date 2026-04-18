@@ -22,6 +22,7 @@ local health = require("gitlab.health")
 
 local user = state.dependencies.user
 local info = state.dependencies.info
+local mergeability = state.dependencies.mergeability
 local labels_dep = state.dependencies.labels
 local project_members = state.dependencies.project_members
 local latest_pipeline = state.dependencies.latest_pipeline
@@ -44,8 +45,8 @@ local function setup(args)
     return
   end
 
-  server.build() -- Builds the Go binary if it doesn't exist
   state.merge_settings(args) -- Merges user settings with default settings
+  server.build() -- Builds the Go binary if it doesn't exist
   state.set_global_keymaps() -- Sets keymaps that are not bound to a specific buffer
   require("gitlab.colors") -- Sets colors
   reviewer.init()
@@ -62,6 +63,7 @@ return {
   setup = setup,
   summary = async.sequence({
     u.merge(info, { refresh = true }),
+    u.merge(mergeability, { refresh = true }),
     labels_dep,
   }, summary.summary),
   approve = async.sequence({ info }, approvals.approve),
