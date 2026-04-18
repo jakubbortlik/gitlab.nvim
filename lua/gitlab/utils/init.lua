@@ -667,6 +667,8 @@ end
 M.open_in_browser = function(url)
   if vim.fn.has("mac") == 1 then
     vim.fn.jobstart({ "open", url })
+  elseif vim.fn.has("win32") == 1 then
+    vim.fn.jobstart({ "cmd", "/c", "start", url })
   elseif vim.fn.has("unix") == 1 then
     vim.fn.jobstart({ "xdg-open", url })
   else
