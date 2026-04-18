@@ -6,7 +6,8 @@ local M = {}
 
 M.run_job = function(endpoint, method, body, callback, on_error_callback)
   local state = require("gitlab.state")
-  local args = { "-s", "-X", (method or "POST"), string.format("localhost:%s", state.settings.port) .. endpoint }
+  local port = state.settings.server and state.settings.server.port
+  local args = { "-s", "-X", (method or "POST"), string.format("localhost:%s%s", port, endpoint) }
 
   if body ~= nil then
     local encoded_body = vim.json.encode(body)
