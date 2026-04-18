@@ -204,5 +204,6 @@ These `keymaps` are active in the reviewer window (the diff view).
 ```
 c	Create a comment for the lines that the following {motion} moves over
 s	Create a suggestion for the lines that the following {motion} moves over
+S	Create a suggestion with preview in a new tab for the lines that the following {motion} moves over
 a	Jump to the comment in the discussion tree
 ```

@@ -223,14 +223,30 @@ end
 --- Creates a comment on the selected line(s) in the current buffer.
 --- In normal mode comments on the current line.
 --- In visual mode comments on the whole selection.
-M.create_comment = function()
+---@param opts CreateCommentsOpts?
+M.create_comment = function(opts)
+  opts = opts or {}
   M.location = Location.new()
   if not M.can_create_comment(false) then
     return
   end
 
+  local suggestion_lines = require("gitlab.actions.suggestions").build_suggestion(
+    vim.api.nvim_buf_get_lines(0, 0, -1, false),
+    M.location.visual_range.start_line,
+    M.location.visual_range.end_line
+  )
+
   local layout = M.create_comment_layout({ unlinked = false })
   layout:mount()
+
+  if opts.with_suggestion then
+    vim.schedule(function()
+      if suggestion_lines then
+        vim.api.nvim_buf_set_lines(M.comment_popup.bufnr, 0, -1, false, suggestion_lines)
+      end
+    end)
+  end
 end
 
 --- This function will open a a popup to create a "note" (e.g. unlinked comment)
@@ -238,63 +254,6 @@ end
 M.create_note = function()
   local layout = M.create_comment_layout({ unlinked = true })
   layout:mount()
-end
-
----Given the current visually selected area of text, builds text to fill in the
----comment popup with a suggested change
----@return LineRange|nil
-local build_suggestion = function()
-  local current_line = vim.api.nvim_win_get_cursor(0)[1]
-  local range_length = M.location.visual_range.end_line - M.location.visual_range.start_line
-  local backticks = "```"
-  local selected_lines = u.get_lines(M.location.visual_range.start_line, M.location.visual_range.end_line)
-
-  for _, line in ipairs(selected_lines) do
-    if string.match(line, "^```%S*$") then
-      backticks = "````"
-      break
-    end
-  end
-
-  local suggestion_start
-  if M.location.visual_range.start_line == current_line then
-    suggestion_start = backticks .. "suggestion:-0+" .. range_length
-  elseif M.location.visual_range.end_line == current_line then
-    suggestion_start = backticks .. "suggestion:-" .. range_length .. "+0"
-  else
-    --- This should never happen afaik
-    u.notify("Unexpected suggestion position", vim.log.levels.ERROR)
-    return nil
-  end
-  suggestion_start = suggestion_start
-  local suggestion_lines = {}
-  table.insert(suggestion_lines, suggestion_start)
-  vim.list_extend(suggestion_lines, selected_lines)
-  table.insert(suggestion_lines, backticks)
-
-  return suggestion_lines
-end
-
---- This function will open a a popup to create a suggestion comment
---- on the changed/updated line in the current MR
---- See: https://docs.gitlab.com/ee/user/project/merge_requests/reviews/suggestions.html
-M.create_comment_suggestion = function()
-  M.location = Location.new()
-  if not M.can_create_comment(true) then
-    u.press_escape()
-    return
-  end
-
-  local suggestion_lines = build_suggestion()
-
-  local layout = M.create_comment_layout({ unlinked = false })
-  layout:mount()
-
-  vim.schedule(function()
-    if suggestion_lines then
-      vim.api.nvim_buf_set_lines(M.comment_popup.bufnr, 0, -1, false, suggestion_lines)
-    end
-  end)
 end
 
 --- This function will create a new tab with a suggestion preview for the changed/updated line in
