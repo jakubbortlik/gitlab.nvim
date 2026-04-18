@@ -287,6 +287,7 @@
 ---@field NOT_APPROVED string|false
 ---@field NOT_OPEN string|false
 ---@field REQUESTED_CHANGES string|false
+---@field SECURITY_POLICY_PIPELINE_CHECK string|false
 ---@field SECURITY_POLICY_VIOLATIONS string|false
 ---@field STATUS_CHECKS_MUST_PASS string|false
 ---@field TITLE_REGEX string|false

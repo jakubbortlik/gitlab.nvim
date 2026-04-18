@@ -250,6 +250,7 @@ M.settings = {
       NOT_APPROVED = "All required approvals must be given",
       NOT_OPEN = "Merge request must be open",
       REQUESTED_CHANGES = "Change requests must be approved by the requesting user",
+      SECURITY_POLICY_PIPELINE_CHECK = "Security policy pipeline must succeed",
       SECURITY_POLICY_VIOLATIONS = "Security policies are satisfied",
       STATUS_CHECKS_MUST_PASS = "External status checks pass",
       TITLE_REGEX = "Title matches the expected regex",
