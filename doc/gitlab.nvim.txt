@@ -406,6 +406,10 @@ you call this function with no values the defaults will be used:
           border = "rounded",
         },
       },
+      rebase_mr = {
+        skip_ci = false, -- If true, a CI pipeline is not created. Can be overridden in gitlab.rebase call.
+        force = false, --  If true, MR is rebased even if MR already is rebased. Can be overridden in gitlab.rebase call.
+      },
       colors = {
         discussion_tree = {
           username = "Keyword",

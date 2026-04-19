@@ -25,7 +25,13 @@ local can_rebase = function(opts)
   local already_rebased = vim.iter(state.MERGEABILITY):find(function(check)
     return check.identifier == "NEED_REBASE" and check.status == "SUCCESS"
   end)
-  if already_rebased and not opts.force then
+
+  local force = require("gitlab.state").settings.rebase_mr.force
+  if opts.force ~= nil then
+    force = opts.force
+  end
+
+  if already_rebased and not force then
     u.notify("MR is already rebased", vim.log.levels.ERROR)
     return false
   end

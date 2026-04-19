@@ -218,6 +218,7 @@ M.settings = {
   },
   rebase_mr = {
     skip_ci = false,
+    force = false,
   },
   choose_merge_request = {
     open_reviewer = true,

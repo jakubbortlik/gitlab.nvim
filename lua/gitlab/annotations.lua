@@ -208,7 +208,8 @@
 ---@field fork? ForkSettings
 
 ---@class RebaseMrSettings: table
----@field skip_ci? boolean -- Whether to skip CI after rabasing
+---@field skip_ci? boolean -- If true, a CI pipeline is not created.
+---@field force? boolean -- If true, MR is rebased even if MR already is rebased.
 
 ---@class ForkSettings: table
 ---@field enabled? boolean -- If making an MR from a fork
