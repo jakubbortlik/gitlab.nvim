@@ -37,10 +37,14 @@ local can_rebase = function(opts)
   end
 
   local has_conflicts = vim.iter(state.MERGEABILITY):find(function(check)
-    return check.identifier == "CONFLICT" and check.status ~= "SUCCESS"
+    return check.identifier == "CONFLICT" and check.status ~= "SUCCESS" and check.status ~= "INACTIVE"
   end)
   if has_conflicts then
-    u.notify("Rebase locally, resolve all conflicts, then push the branch", vim.log.levels.ERROR)
+    if has_conflicts.status == "FAILED" then
+      u.notify("Rebase locally, resolve all conflicts, then push the branch", vim.log.levels.ERROR)
+    else
+      u.notify("Check for conflicts hasn't passed successfully", vim.log.levels.WARN)
+    end
     return false
   end
 
