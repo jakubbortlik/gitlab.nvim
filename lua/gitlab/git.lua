@@ -17,26 +17,6 @@ local run_system = function(command)
   return result, nil
 end
 
----Function to run when an async system call finishes. Receives the command's stdout as result when
----successful, or the command's stderr as err when unsuccessful.
----@alias OnExitCallback fun(result:string|nil, err:string|nil)
-
----Runs a system command asynchronously
----@param command string[]
----@param on_exit OnExitCallback
-local run_system_async = function(command, on_exit)
-  vim.system(command, { text = true }, function(result)
-    vim.schedule(function()
-      if result.code ~= 0 then
-        require("gitlab.utils").notify(result.stderr, vim.log.levels.ERROR)
-        on_exit(nil, result.stderr)
-      else
-        on_exit(vim.fn.trim(result.stdout), nil)
-      end
-    end)
-  end)
-end
-
 ---Returns all branches for the current repository
 ---@param args table|nil extra arguments for `git branch`
 ---@return string|nil, string|nil
@@ -88,7 +68,11 @@ end
 ---@param remote_branch string The name of the repo and branch to fetch (e.g., "origin/some_branch")
 ---@return boolean fetch_successful False if an error occurred while fetching, true otherwise.
 M.fetch_remote_branch = function(remote_branch)
-  local remote, branch = string.match(remote_branch, "([^/]+)/(.*)")
+  local remote, branch = string.match(remote_branch, "([^/]+)/(.+)")
+  if not remote or not branch then
+    require("gitlab.utils").notify("Invalid remote branch format: " .. remote_branch, vim.log.levels.ERROR)
+    return false
+  end
   local _, fetch_err = run_system({ "git", "fetch", remote, branch })
   if fetch_err ~= nil then
     require("gitlab.utils").notify("Error fetching remote-tracking branch: " .. fetch_err, vim.log.levels.ERROR)
@@ -125,26 +109,6 @@ M.get_ahead_behind = function(current_branch, remote_branch)
   end
 
   return tonumber(ahead), tonumber(behind)
-end
-
----Pull a branch asynchronously from a remote and execute callback on exit.
----@param remote string The remote from which to pull.
----@param branch string The branch to pull.
----@param on_exit OnExitCallback The callback to execute when the command finishes.
----@param args string[]? Extra arguments passed to the `git pull` command.
-M.pull_async = function(remote, branch, on_exit, args)
-  local current_branch = M.get_current_branch()
-  if not current_branch then
-    return
-  end
-  if current_branch ~= branch then
-    require("gitlab.utils").notify("Cannot pull. Remote branch is not the same as current branch", vim.log.levels.ERROR)
-    return
-  end
-  local cmd = { "git", "pull" }
-  vim.list_extend(cmd, args or {})
-  vim.list_extend(cmd, { remote, branch })
-  run_system_async(cmd, on_exit)
 end
 
 ---Return the name of the current branch or nil if it can't be retrieved
@@ -202,13 +166,13 @@ M.contains_branch = function(current_branch)
   return run_system({ "git", "branch", "-r", "--contains", current_branch })
 end
 
----Returns true if `branch` is up-to-date on remote, otherwise false and warns user
----@param log_level integer
+--- Returns true if `branch` is up-to-date on remote, otherwise false and warns user
+---@param ahead integer|nil The number of commits the current branch is ahead of remote
+---@param behind integer|nil The number of commits the current branch is behind remote
+---@param remote_branch string|nil The remote branch, e.g., origin/feature-branch
+---@param log_level number
 ---@return boolean
-M.check_current_branch_up_to_date_on_remote = function(log_level)
-  local current_branch = M.get_current_branch()
-  local remote_branch = M.get_remote_branch()
-  local ahead, behind = M.get_ahead_behind(current_branch, remote_branch)
+M.evaluate_ahead_behind = function(ahead, behind, remote_branch, log_level)
   if ahead == nil or behind == nil then
     return false
   end
@@ -236,6 +200,19 @@ M.check_current_branch_up_to_date_on_remote = function(log_level)
   end
 
   return true -- Checks passed, branch is up-to-date
+end
+
+--- Returns true if `branch` is up-to-date on remote, otherwise false and notifies user.
+--- This is a blocking function. For a non-blocking version use
+--- gitlab.git_async.check_current_branch_up_to_date_on_remote.
+---@param log_level number The log level with which user will be notified
+---@return boolean
+M.check_current_branch_up_to_date_on_remote = function(log_level)
+  local current_branch = M.get_current_branch()
+  local remote_branch = M.get_remote_branch()
+  local ahead, behind = M.get_ahead_behind(current_branch, remote_branch)
+  require("gitlab.state").ahead_behind = { ahead, behind }
+  return M.evaluate_ahead_behind(ahead, behind, remote_branch, log_level)
 end
 
 ---Warns user if the current MR is in a bad state (closed, has conflicts, merged)

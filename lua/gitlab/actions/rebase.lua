@@ -76,7 +76,7 @@ local confirm_rebase = function(rebase_body)
   job.run_job("/mr/rebase", "POST", rebase_body, function(data)
     u.notify(data.message .. ", updating local state", vim.log.levels.INFO)
     local state = require("gitlab.state")
-    require("gitlab.git").pull_async(
+    require("gitlab.git_async").pull(
       state.settings.connection_settings.remote,
       state.INFO.source_branch,
       on_pull_exit,

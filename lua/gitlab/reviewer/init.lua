@@ -40,8 +40,8 @@ M.open = function()
     return
   end
 
+  require("gitlab.git_async").check_current_branch_up_to_date_on_remote(vim.log.levels.WARN)
   local git = require("gitlab.git")
-  git.check_current_branch_up_to_date_on_remote(vim.log.levels.WARN)
 
   local diffview_open_command = "DiffviewOpen"
 
