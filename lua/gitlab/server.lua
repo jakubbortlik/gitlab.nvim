@@ -122,8 +122,7 @@ M.build = function(override)
   state.settings.root_path = u.get_root_path()
 
   -- If the user provided a path to the server, don't build it.
-  if state.settings.server.binary ~= nil then
-    state.settings.server.binary_provided = true
+  if state.settings.server.binary_provided then
     local binary_exists = vim.loop.fs_stat(state.settings.server.binary)
     if binary_exists == nil then
       u.notify(
