@@ -562,7 +562,7 @@ M.dependencies = {
         opts["not[label]"] = opts.notlabel
         opts.notlabel = nil
       end
-      return opts or vim.json.decode("{}")
+      return opts or {}
     end,
   },
   merge_requests_by_username = {
