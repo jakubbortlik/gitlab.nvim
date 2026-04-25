@@ -454,6 +454,9 @@ end
 ---@param args Settings
 ---@return Settings
 M.merge_settings = function(args)
+  if args.server and args.server.binary ~= nil then
+    M.settings.server.binary_provided = true
+  end
   M.settings = u.merge(M.settings, args)
   return M.settings
 end
