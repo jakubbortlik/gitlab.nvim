@@ -15,14 +15,20 @@ local M = {}
 M.open = function(opts)
   local help_opts = opts or {}
   local bufnr = vim.api.nvim_get_current_buf()
-  local keymaps = vim.api.nvim_buf_get_keymap(bufnr, "n")
-  local help_content_lines = List.new(keymaps):reduce(function(agg, keymap)
-    if keymap.desc ~= nil then
-      local new_line = string.format("%s: %s", keymap.lhs:gsub(" ", "<space>"), keymap.desc)
-      table.insert(agg, new_line)
-    end
-    return agg
-  end, {})
+  ---List the described mappings of one mode.
+  ---@param mode string
+  ---@return string[]
+  local function describe_keymaps(mode)
+    local prefix = mode == "o" and "<operator>" or ""
+    return List.new(vim.api.nvim_buf_get_keymap(bufnr, mode)):reduce(function(agg, keymap)
+      if keymap.desc ~= nil then
+        table.insert(agg, string.format("%s%s: %s", prefix, keymap.lhs:gsub(" ", "<space>"), keymap.desc))
+      end
+      return agg
+    end, {})
+  end
+
+  local help_content_lines = u.join(describe_keymaps("n"), describe_keymaps("o"))
 
   if help_opts.discussion_tree then
     table.insert(help_content_lines, "")

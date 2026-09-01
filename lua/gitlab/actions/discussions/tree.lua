@@ -384,6 +384,112 @@ M.nui_tree_prepare_node = function(node)
   return lines
 end
 
+---Return the note's body as it arrived from Gitlab. The body nodes keep the source line in
+---`node.text`; the tree's indentation is added when the line is rendered, so what the note
+---actually said is always recoverable.
+---@param tree NuiTree
+---@param note_node NuiTree.Node
+---@return string[]
+local function note_body_lines(tree, note_node)
+  local lines = {}
+  for _, child in ipairs(tree:get_nodes(note_node:get_id())) do
+    if child.type == "note_body" then
+      table.insert(lines, child.text)
+    end
+  end
+  return lines
+end
+
+---Write `lines` into the registers that the linewise yank being handled wrote to, so that
+---replacing a yank is indistinguishable from having yanked the right text to begin with.
+---@param lines string[]
+local function set_yanked_registers(lines)
+  local regname = vim.v.event.regname
+  if regname ~= "" then
+    vim.fn.setreg(regname, lines, "V")
+    return
+  end
+  vim.fn.setreg('"', lines, "V")
+  vim.fn.setreg("0", lines, "V")
+  local clipboard = vim.split(vim.o.clipboard, ",", { trimempty = true })
+  if u.contains(clipboard, "unnamedplus") then
+    vim.fn.setreg("+", lines, "V")
+  end
+  if u.contains(clipboard, "unnamed") then
+    vim.fn.setreg("*", lines, "V")
+  end
+end
+
+---Select the note under the cursor as a linewise text object, so that it can be operated on
+---with e.g. `yan`. Rendering indents every line and draws the header with an expander icon, so
+---the lines in the buffer are not the note's own; a yank of exactly this selection is therefore
+---replaced with the note itself, leaving what lands in the register free of the indentation and
+---the icon.
+---@param tree NuiTree
+---@param include_header boolean Whether to take the note's header line along with its body
+M.select_note = function(tree, include_header)
+  local note_node = common.get_note_node(tree, tree:get_node())
+  if note_node == nil then
+    return
+  end
+
+  local _, note_start, note_end = tree:get_node(note_node:get_id())
+  note_end = note_end or note_start
+
+  local start_linenr, end_linenr
+  for _, child in ipairs(tree:get_nodes(note_node:get_id())) do
+    if child.type == "note_body" then
+      local _, child_start, child_end = tree:get_node(child:get_id())
+      if child_start ~= nil then
+        child_end = child_end or child_start
+        start_linenr = math.min(start_linenr or child_start, child_start)
+        end_linenr = math.max(end_linenr or child_end, child_end)
+      end
+    end
+  end
+  if include_header and note_start ~= nil then
+    start_linenr = math.min(start_linenr or note_start, note_start)
+    end_linenr = math.max(end_linenr or note_end, note_end)
+  end
+  -- A collapsed note shows no body lines at all; fall back to its header line.
+  if start_linenr == nil then
+    start_linenr, end_linenr = note_start, note_end
+  end
+  if start_linenr == nil then
+    return
+  end
+
+  local lines = note_body_lines(tree, note_node)
+  -- `note_node.text` is the header without the expander icon that is drawn in front of it.
+  if include_header and type(note_node.text) == "string" then
+    table.insert(lines, 1, note_node.text)
+  end
+  if #lines > 0 then
+    local rendered = vim.api.nvim_buf_get_lines(tree.bufnr, start_linenr - 1, end_linenr, false)
+    vim.api.nvim_create_autocmd("TextYankPost", {
+      buffer = tree.bufnr,
+      once = true,
+      desc = "Replace a yanked note with its unindented body",
+      callback = function()
+        -- Only substitute for a yank of this very selection. If the operator was aborted, the
+        -- autocommand outlives it, and this is what keeps it from touching an unrelated yank.
+        if vim.v.event.operator == "y" and vim.deep_equal(vim.v.event.regcontents, rendered) then
+          set_yanked_registers(lines)
+        end
+      end,
+    })
+  end
+
+  -- When invoked from visual mode the anchor is already set, and moving the cursor would only
+  -- extend the existing selection instead of replacing it. Drop back to normal mode first.
+  if vim.fn.mode():match("^[vV\22]") then
+    vim.cmd.normal({ vim.api.nvim_replace_termcodes("<Esc>", true, false, true), bang = true })
+  end
+  vim.api.nvim_win_set_cursor(0, { start_linenr, 0 })
+  vim.cmd("normal! V")
+  vim.api.nvim_win_set_cursor(0, { end_linenr, 0 })
+end
+
 ---@class ToggleNodesOptions
 ---@field toggle_resolved boolean Whether to toggle resolved discussions.
 ---@field toggle_unresolved boolean Whether to toggle unresolved discussions.

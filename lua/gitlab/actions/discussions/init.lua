@@ -677,6 +677,24 @@ M.set_tree_keymaps = function(tree, bufnr, unlinked)
     end
   end
 
+  if keymaps.discussion_tree.note_text_object then
+    vim.keymap.set({ "o", "x" }, keymaps.discussion_tree.note_text_object, function()
+      discussions_tree.select_note(tree, true)
+    end, {
+      buffer = bufnr,
+      desc = "Select the note under the cursor with its header",
+    })
+  end
+
+  if keymaps.discussion_tree.inner_note_text_object then
+    vim.keymap.set({ "o", "x" }, keymaps.discussion_tree.inner_note_text_object, function()
+      discussions_tree.select_note(tree, false)
+    end, {
+      buffer = bufnr,
+      desc = "Select the body of the note under the cursor",
+    })
+  end
+
   if keymaps.discussion_tree.refresh_data then
     vim.keymap.set("n", keymaps.discussion_tree.refresh_data, function()
       draft_notes.rebuild_view(unlinked, false)
