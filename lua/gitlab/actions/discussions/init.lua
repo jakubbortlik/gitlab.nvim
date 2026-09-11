@@ -219,7 +219,7 @@ M.open = function(callback, view_type)
     group = indent_group,
   })
   vim.api.nvim_create_autocmd("OptionSet", {
-    pattern = { "wrap", "breakat", "number", "relativenumber", "signcolumn" },
+    pattern = { "wrap", "breakat", "number", "relativenumber", "signcolumn", "tabstop" },
     callback = function()
       virtual_indent.apply(get_current_tree())
     end,

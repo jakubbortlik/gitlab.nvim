@@ -1,20 +1,17 @@
 -- This module draws the discussion tree's indentation as inline virtual text, including
 -- on the continuation of lines that Neovim soft-wraps.
 --
--- Drawing the indentation virtually has these benefits: Note bodies start in column 0
--- so they are copied without the tree's indentation. Treesitter can parse
--- column-sensitive markdown constructs (e.g., fenced code blocks) correctly. The cost
--- is that 'breakindent' can no longer align wrapped lines (see
--- https://github.com/neovim/neovim/issues/35341).
+-- Drawing the indentation virtually has these benefits:
+-- 1. Comment bodies start in column 0 so they are copied without the tree's
+--    indentation.
+-- 2. Treesitter can parse column-sensitive markdown constructs (e.g., fenced code
+--    blocks) correctly, enabling highligting and treesitter-text-objects
 --
--- 'breakindent' is replaced by a second set of extmarks, one at each point where the
--- text is predicted to wrap. An inline extmark straddles a wrap: as much of its virtual
--- text as still fits pads out the current screen line, and the remainder is drawn at
--- the start of the next one. Giving such a mark `indent + <columns left on this screen
--- line>` spaces therefore fills the current line to its edge and re-indents the
--- continuation, without a single character entering the buffer. The technique is
--- borrowed from this PR to nvim-orgmode:
--- https://github.com/nvim-orgmode/orgmode/pull/1017
+-- The cost is that 'breakindent' can no longer align wrapped lines (see
+-- https://github.com/neovim/neovim/issues/35341). 'breakindent' is replaced by a second
+-- set of extmarks, one at each point where the text is predicted to wrap based on the
+-- 'breakat' option, but it lets Neovim actually wrap the lines (if 'wrap' is set) and
+-- carry the extmark down to the continuation line.
 
 local state = require("gitlab.state")
 
@@ -25,11 +22,17 @@ local ns = vim.api.nvim_create_namespace("gitlab_discussion_tree_indent")
 ---A tuple of `text` and optional `highlight`.
 ---@alias VirtText {[1]: string, [2]: string?}
 
+---One block of indentation containing the VirtText chunk and information about its context
+---@class IndentBlock
+---@field chunk? VirtText The virtual text in the block. Nil if ... TODO
+---@field branch? boolean Whether the chunk is a branch (e.g., { "├─", "GitlabIndentGuide" } or a continuation) TODO: remove this and always set `below` instead?
+---@field below? VirtText
+
 ---Return the number of display columns one level of nesting takes up.
 ---This is the configured `indent_width`, but cannot be less than the width of the
 ---expanders which are drawn inside the node's own level.
 ---@return integer
-local function level_width()
+local function get_level_width()
   local settings = state.settings.discussion_tree
   return math.max(
     settings.indent_width,
@@ -54,9 +57,9 @@ local function padding(width)
   return { string.rep(" ", width) }
 end
 
----The guide block the replies carry at the level of the note that started the thread.
+---Return the VirtText chunk that replies carry at the indent level of the comment that started the thread.
 ---`nil` when guides are turned off.
----@param width integer
+---@param width integer The width of one level of nesting, from `level_width()`
 ---@param kind "vertical"|"branch"|"last"
 ---@return VirtText?
 local function guide(width, kind)
@@ -72,43 +75,43 @@ local function guide(width, kind)
   return { block, "GitlabIndentGuide" }
 end
 
----The virtual text that indents one line of a node, as a list of VirtText chunks.
----
----A node's text starts at `depth * level_width()`, and the indentation is that many columns
----made of `depth` blocks, one per level of nesting. The last block belongs to the node itself
----and holds its expander when it has children; the blocks before it are its ancestors', and
----carry a guide only for the note that started the discussion. Drawing the expander inside a
----block rather than in front of the text is what keeps a note's header aligned with the bodies
----and replies underneath it, whatever the expander icons are.
----@param node NuiTree.Node
----@param ancestors table[] One block per ancestor level, innermost last
----@param width integer The width of one level, from `level_width()`
----@param expander boolean Whether to draw the node's expander, i.e. whether this is the line its text starts on
+---@class IndentChunksOpts
+---@field node NuiTree.Node The current tree node
+---@field ancestors IndentBlock[] One indent block per ancestor level, innermost (closest to the node text) last
+---@field width integer The width of one indent level, from `level_width()`
+---@field expander boolean Whether to draw the node's expander, i.e. whether this is the line its text starts on
+
+---Return list of VirtText chunks that indent one line of a node.
+---A node's indentation consists of one VirtText chunk per node depth (level of
+---nesting). The last chunk belongs to the node itself and holds its expander when it
+---has children; the chunks before it belong to its ancestors, and carry an indent guide
+---at the indent level of the comment node that started the discussion.
+---@param opts IndentChunksOpts
 ---@return VirtText[]
-local function indent_chunks(node, ancestors, width, expander)
-  local blocks = {}
-  for _, block in ipairs(ancestors) do
-    table.insert(blocks, block.chunk or padding(width))
+local function indent_chunks(opts)
+  local chunks = {}
+  for _, block in ipairs(opts.ancestors) do
+    table.insert(chunks, block.chunk or padding(opts.width))
   end
 
   local expanders = state.settings.discussion_tree.expanders
-  if node:has_children() and expander then
-    local icon = node:is_expanded() and expanders.expanded or expanders.collapsed
-    table.insert(blocks, { pad(icon, width), "GitlabExpander" })
+  if opts.node:has_children() and opts.expander then
+    local icon = opts.node:is_expanded() and expanders.expanded or expanders.collapsed
+    table.insert(chunks, { pad(icon, opts.width), "GitlabExpander" })
   else
-    table.insert(blocks, padding(width))
+    table.insert(chunks, padding(opts.width))
   end
 
-  return blocks
+  return chunks
 end
 
 ---The same blocks, as they are drawn on the lines *below* the one a node's text starts on: its
 ---own wrapped lines and everything nested under it. Only the innermost block changes, from the
 ---branch that ties a reply to its discussion to the plain vertical that carries on past it.
----@param ancestors table[]
----@return table[]
+---@param ancestors IndentBlock[]
+---@return IndentBlock[]
 local function below(ancestors)
-  local result = vim.deepcopy(ancestors)
+  local result = vim.list_extend({}, ancestors)
   local innermost = result[#result]
   if innermost ~= nil and innermost.branch then
     result[#result] = { chunk = innermost.below }
@@ -116,16 +119,16 @@ local function below(ancestors)
   return result
 end
 
----Work out the block each child of `node` carries at `node`'s own level, and the block its
+---Return the blocks each child of `node` carries at `node`'s own level, and the block its
 ---descendants carry below it.
 ---
----Only a discussion's root note produces guides: a reply is tied to the note it answers, and
+---Only a discussion's root comment produces guides: a reply is tied to the comment it answers, and
 ---nothing else is. Every other level pads, so a reply's body is not joined to the reply's own
 ---header.
 ---@param node NuiTree.Node
 ---@param children NuiTree.Node[]
----@param width integer
----@return table<string, table> keyed by child node id
+---@param width integer The width of one level of nesting, from `level_width()`
+---@return table<string, IndentBlock> blocks Keyed by child node id
 local function child_blocks(node, children, width)
   local blocks = {}
   if not node.is_root then
@@ -154,7 +157,7 @@ local function child_blocks(node, children, width)
       }
       seen_last = is_last
     else
-      -- A body line of the note itself: the discussion continues below it whenever a reply
+      -- A body line of the comment itself: the discussion continues below it whenever a reply
       -- follows, and there is nothing left to join to once the last one has been passed.
       blocks[id] = { chunk = (last_reply ~= nil and not seen_last) and guide(width, "vertical") or nil }
     end
@@ -162,23 +165,28 @@ local function child_blocks(node, children, width)
   return blocks
 end
 
----Virtual text that indents a wrapped line by `width` columns, opening it with the configured
----`wrap_marker` symbol. Unlike Vim's 'showbreak', the symbol is drawn inside the indentation
----rather than in front of the text, so it costs no columns and the text stays aligned. It is
----dropped if it would not fit within the indentation.
----@param chunks string[][] The node's indentation, from `indent_chunks`
----@param width integer Total display columns the chunks take up
----@return string[][]
+---Returns virtual text that indents a wrapped line by `width` columns.
+---It opens the line's text with the configured `wrap_marker` symbol. Unlike Vim's
+---'showbreak', the symbol is drawn inside the indentation rather than in the column
+---where the wrapped text should start, so it costs no columns and the text stays
+---aligned. It is dropped if it would not fit within the indentation.
+---@param chunks VirtText[] The node's indentation, from `indent_chunks`
+---@param width integer Total display columns the indent chunks take up
+---@return VirtText[]
 local function wrapped_indent(chunks, width)
   local wrap_marker = state.settings.discussion_tree.wrap_marker
-  local symbol = vim.fn.strdisplaywidth(wrap_marker)
-  if wrap_marker == "" or symbol > width then
+  -- TODO: strdisplaywidth measures each chunk out of context. A tab's width depends on
+  -- its column, so lines with tabs, including tab leading whitespace in lead_width, can
+  -- mispredict where the wrap falls.
+  local symbol_width = vim.fn.strdisplaywidth(wrap_marker)
+  if wrap_marker == "" or symbol_width > width then
     return chunks
   end
-  -- Trim the marker's width off the end of the indentation and put the marker there, so that it
-  -- costs no columns and the text it precedes stays where it would otherwise be.
+  -- Trim the marker's width off the end of the indentation and put the marker there, so
+  -- that it costs no columns and the text it precedes stays where it would otherwise
+  -- be.
   local marked = {}
-  local remaining = width - symbol
+  local remaining = width - symbol_width
   for _, chunk in ipairs(chunks) do
     local chunk_width = vim.fn.strdisplaywidth(chunk[1])
     if remaining >= chunk_width then
@@ -193,14 +201,14 @@ local function wrapped_indent(chunks, width)
   return marked
 end
 
----Split a line the way 'linebreak' does: into chunks that each end with the characters a line
----may be broken after. A chunk is therefore a word together with the punctuation or whitespace
----trailing it, which is what has to fit on a screen line for the word to stay on it.
----@param line string
----@param breakat table<string, boolean>
+---Find the chunks a line can be broken into the way 'linebreak' does.
+---Each chunk is a "word" together with the 'breakat' character trailing it
+---after which the line may be broken.
+---@param line string The text of a comment line
+---@param breakat table<string, boolean> The set of characters which may cause a line break
 ---@return {byte: integer, width: integer}[]
 local function chunks(line, breakat)
-  -- Every character in \'breakat\' is ASCII, and no byte of a multibyte character ever is, so
+  -- Every character in 'breakat' is ASCII, and no byte of a multibyte character ever is, so
   -- this can scan bytes without splitting a character.
   local list = {}
   local pos = 1
@@ -218,20 +226,20 @@ local function chunks(line, breakat)
 end
 
 ---Find the points at which Neovim will soft-wrap `line`, filling screen lines with as many
----whole chunks as fit, exactly as \'linebreak\' does.
+---whole chunks as fit, exactly as 'linebreak' does.
 ---
 ---Only the chunks that start a line are returned; the caller draws the indentation in front of
 ---each of them. A chunk too wide for a line of its own is left alone, since Neovim then has to
 ---break it mid-chunk, at a point no virtual text can usefully be attached to.
 ---@param line string
 ---@param width integer Display columns available to the text itself on the first screen line
----@param indent integer Display columns the tree indents the line by
----@param lead integer Display columns of the line\'s own leading whitespace, which a wrapped line is indented by on top of the tree\'s indentation and so cannot use for text
----@param wrap boolean Whether the 'wrap' option is on
+---@param indent_width integer Display columns the tree indents the line by
+---@param lead integer Display columns of the line's own leading whitespace, which a wrapped line is indented by on top of the tree's indentation and so cannot use for text
+---@param breakat table<string, boolean> The set of characters which may cause a line break
 ---@return integer[] byte 0-based byte positions of the chunks that start a wrapped line
-local function wrap_points(line, width, indent, lead, breakat, wrap)
+local function wrap_points(line, width, indent_width, lead, breakat)
   local points = {}
-  if width < 1 or width - lead < 1 or not wrap then
+  if width < 1 or width - lead < 1 then
     return points
   end
 
@@ -240,7 +248,7 @@ local function wrap_points(line, width, indent, lead, breakat, wrap)
   -- alone -- one holding a chunk too wide to be indented and still fit -- has the window to
   -- itself.
   local hanging = width - lead
-  local full = width + indent
+  local full = width + indent_width
 
   local column = 0
   local capacity = width
@@ -271,13 +279,13 @@ local function wrap_points(line, width, indent, lead, breakat, wrap)
   return points
 end
 
----Display columns the text of a window has to itself.
+---Return the number of display columns the text of a window has to itself.
+---Subtracts the number of columns occupied by the sign, number and fold columns.
 ---@param winid integer
 ---@return integer
-local function text_width(winid)
-  local win = vim.fn.getwininfo(winid)[1]
-  -- `textoff` covers the sign, number and fold columns, which the text cannot use.
-  return win.width - win.textoff
+local function get_text_width(winid)
+  local wininfo = vim.fn.getwininfo(winid)[1]
+  return wininfo.width - wininfo.textoff
 end
 
 ---Draw the indentation of every visible node.
@@ -286,26 +294,19 @@ end
 ---Safe to call repeatedly; each call replaces the marks of the one before.
 ---@param tree? NuiTree
 M.apply = function(tree)
-  if tree == nil then
+  if tree == nil or not tree.bufnr or not vim.api.nvim_buf_is_valid(tree.bufnr) then
     return
   end
+
   local bufnr = tree.bufnr
-  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+  local winid = vim.fn.bufwinid(bufnr)
+  if winid < 0 then
     return
   end
-  vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
 
-  local winid = vim.fn.bufwinid(bufnr)
-
-  local width = winid > -1 and text_width(winid) or nil
+  local text_width = get_text_width(winid)
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-  local level = level_width()
-
-  -- Only insert indentation when 'wrap' is set for the window. Default to true.
-  local wrap = true
-  if winid > -1 then
-    wrap = vim.wo[winid].wrap
-  end
+  local level_width = get_level_width()
 
   local breakat = {}
   local option = vim.o.breakat
@@ -313,44 +314,46 @@ M.apply = function(tree)
     breakat[option:sub(i, i)] = true
   end
 
-  ---Draw `node`, then everything under it.
+  vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
+
+  ---Draw indentation for `node`, then recursively for everything under it.
   ---The tree is walked in order rather than by id, because a node's indentation depends
   ---on where its ancestors sit among their own siblings.
   ---@param node NuiTree.Node
-  ---@param ancestors table[] One block per ancestor level, innermost last
+  ---@param ancestors IndentBlock[] One block per ancestor level, innermost last
   local function draw(node, ancestors)
-    local _, start_linenr, end_linenr = tree:get_node(node:get_id())
-    local indent = node._depth * level
+    -- We only need the start line as nodes created by gitlab.nvim are always single-line
+    local _, start_linenr, _ = tree:get_node(node:get_id())
+    local indent_width = node._depth * level_width
 
     local beneath = below(ancestors)
-    if start_linenr and indent > 0 then
-      local prefix = indent_chunks(node, ancestors, level, true)
-      local continuation = indent_chunks(node, beneath, level, false)
-      for linenr = start_linenr, end_linenr or start_linenr do
-        vim.api.nvim_buf_set_extmark(bufnr, ns, linenr - 1, 0, {
-          virt_text = linenr == start_linenr and prefix or continuation,
-          virt_text_pos = "inline",
-          right_gravity = false,
-        })
+    if start_linenr and indent_width > 0 then
+      local prefix = indent_chunks({ node = node, ancestors = ancestors, width = level_width, expander = true })
+      vim.api.nvim_buf_set_extmark(bufnr, ns, start_linenr - 1, 0, {
+        virt_text = prefix,
+        virt_text_pos = "inline",
+        right_gravity = false,
+      })
 
-        -- With 'linebreak' set, Neovim keeps inline virtual text together with the chunk it
-        -- sits in front of. A mark on a chunk that starts a wrapped line therefore moves down
-        -- with it and is drawn at the very start of that screen line, which is exactly where
-        -- the indentation belongs.
-        local line = lines[linenr]
-        if width ~= nil and line ~= nil then
-          -- Wrapped lines hang under the text they continue, so they are indented by the
-          -- line's own leading whitespace as well, the way 'breakindent' would do it.
-          local lead = vim.fn.strdisplaywidth(line:match("^%s*"))
-          local hanging = vim.list_extend(vim.deepcopy(continuation), { padding(lead) })
-          local virt_text = wrapped_indent(hanging, indent + lead)
-          for _, byte in ipairs(wrap_points(line, width - indent, indent, lead, breakat, wrap)) do
-            vim.api.nvim_buf_set_extmark(bufnr, ns, linenr - 1, byte, {
-              virt_text = virt_text,
-              virt_text_pos = "inline",
-              right_gravity = false,
-            })
-          end
+      -- With 'linebreak' set, Neovim keeps inline virtual text together with the chunk
+      -- it sits in front of. A mark on a chunk that starts a wrapped line therefore
+      -- moves down with the chunk and is drawn at the very start of that screen line,
+      -- which is exactly where the indentation belongs.
+      -- Only insert indentation when 'wrap' is set for the window.
+      local line = lines[start_linenr]
+      if line ~= nil and vim.wo[winid].wrap then
+        local continuation = indent_chunks({ node = node, ancestors = beneath, width = level_width, expander = false })
+        -- Wrapped lines hang under the text they continue, so they are indented by the
+        -- line's own leading whitespace as well, the way 'breakindent' would do it.
+        local lead_width = vim.fn.strdisplaywidth(line:match("^%s*"))
+        local hanging = vim.list_extend(continuation, { padding(lead_width) })
+        local virt_text = wrapped_indent(hanging, indent_width + lead_width)
+        for _, byte in ipairs(wrap_points(line, text_width - indent_width, indent_width, lead_width, breakat)) do
+          vim.api.nvim_buf_set_extmark(bufnr, ns, start_linenr - 1, byte, {
+            virt_text = virt_text,
+            virt_text_pos = "inline",
+            right_gravity = false,
+          })
         end
       end
     end
@@ -359,14 +362,16 @@ M.apply = function(tree)
       return
     end
     local children = tree:get_nodes(node:get_id())
-    local blocks = child_blocks(node, children, level)
+    local blocks = child_blocks(node, children, level_width)
     for _, child in ipairs(children) do
-      local inherited = vim.deepcopy(beneath)
+      local inherited = vim.list_extend({}, beneath)
       table.insert(inherited, blocks[child:get_id()] or {})
       draw(child, inherited)
     end
   end
 
+  -- Iterate over the top-level nodes (either the comments that start a thread or the
+  -- files if by_file_name tree type is selected)
   for _, node in ipairs(tree:get_nodes()) do
     draw(node, {})
   end
