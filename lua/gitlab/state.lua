@@ -190,8 +190,15 @@ M.settings = {
     expanders = {
       expanded = " ",
       collapsed = " ",
-      indentation = "  ",
     },
+    indent_width = 2,
+    indent_guides = {
+      vertical = "│",
+      branch = "├",
+      last = "╰",
+      horizontal = "─",
+    },
+    wrap_marker = "↪ ",
     spinner_chars = { "-", "\\", "|", "/" },
     auto_open = true,
     focus_on_open = true,
@@ -212,8 +219,6 @@ M.settings = {
     winopts = {
       number = false,
       relativenumber = false,
-      breakindent = true,
-      showbreak = "+ ",
     },
   },
   emojis = {
@@ -325,6 +330,8 @@ M.settings = {
       date = "Comment",
       unlinked = "DiffviewNonText",
       expander = "DiffviewNonText",
+      wrap_marker = "DiffviewNonText",
+      indent_guide = "DiffviewNonText",
       directory = "Directory",
       directory_icon = "DiffviewFolderSign",
       file_name = "Normal",
