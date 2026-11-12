@@ -12,7 +12,7 @@ local function build_path(modules, extensions)
 end
 
 local plugins_folder = "tests/plugins/*/lua"
-local luarocks_cmd = "luarocks config --scope project"
+local luarocks_cmd = "luarocks --lua-version 5.1 --local config"
 
 -- Project path
 local modules = { "lua" }

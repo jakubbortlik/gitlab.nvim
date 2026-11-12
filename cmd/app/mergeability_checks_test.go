@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/harrisoncramer/gitlab.nvim/cmd/app/git"
@@ -11,8 +12,15 @@ import (
 )
 
 type fakeGraphQLClient struct {
-	err      error
-	jsonData []byte
+	err error
+	// jsonData is returned for every query, unless introspectionData is set and the
+	// query is a schema introspection query (contains "__type"), in which case
+	// introspectionData is returned instead.
+	jsonData          []byte
+	introspectionData []byte
+	// capturedVariables, when non-nil, is set to the variables of the last non-
+	// introspection query sent, so tests can assert on what was actually sent.
+	capturedVariables *map[string]any
 }
 
 func (f fakeGraphQLClient) Do(query gitlab.GraphQLQuery, response any, options ...gitlab.RequestOptionFunc) (*gitlab.Response, error) {
@@ -20,14 +28,17 @@ func (f fakeGraphQLClient) Do(query gitlab.GraphQLQuery, response any, options .
 		return nil, f.err
 	}
 
-	// Actually unmarshal JSON into the response struct
-	if err := json.Unmarshal(f.jsonData, response); err != nil {
-		return nil, err
+	data := f.jsonData
+	if f.introspectionData != nil && strings.Contains(query.Query, "__type") {
+		data = f.introspectionData
+	} else if f.capturedVariables != nil {
+		*f.capturedVariables = query.Variables
 	}
 
-	// if resp, ok := response.(mergeabilityChecksGraphQLResponse); ok {
-	// 	resp.Data.Project.MergeRequest.MergeabilityChecks = f.checks
-	// }
+	// Actually unmarshal JSON into the response struct
+	if err := json.Unmarshal(data, response); err != nil {
+		return nil, err
+	}
 
 	return makeResponse(http.StatusOK), nil
 }

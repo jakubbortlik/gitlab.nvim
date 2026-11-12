@@ -103,7 +103,7 @@ func CreateRouter(gitlabClient *Client, projectInfo *ProjectInfo, s *shutdownSer
 		withMethodCheck(http.MethodPost, http.MethodDelete, http.MethodPatch),
 	))
 	m.HandleFunc("/mr/merge", middleware(
-		mergeRequestAccepterService{d, gitlabClient},
+		mergeRequestAccepterService{d, gitlabClient, gitlabClient, gitlabClient},
 		withMr(d, gitlabClient),
 		withPayloadValidation(methodToPayload{http.MethodPost: newPayload[AcceptMergeRequestRequest]}),
 		withMethodCheck(http.MethodPost),
