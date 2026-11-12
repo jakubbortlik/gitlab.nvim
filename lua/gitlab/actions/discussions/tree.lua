@@ -555,4 +555,20 @@ M.toggle_node = function(tree)
   tree:render()
 end
 
+M.jump = function(opts)
+  local discussions = require("gitlab.actions.discussions")
+  local default_opts = {
+    count = 1,
+    types = {"directory", "file_name", "thread", "reply"},
+    collapse_on_leave = false,
+    expand_on_enter = false,
+    reviewer_follows_discussion = discussions.reviewer_follows_discussion,
+  }
+  opts = vim.tbl_deep_extend("force", default_opts, opts or {})
+
+  if not discussions.split_visible then
+    discussions.open(nil, require("gitlab.actions.discussions.winbar").current_view_type)
+  end
+end
+
 return M

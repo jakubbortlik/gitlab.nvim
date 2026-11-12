@@ -16,7 +16,6 @@ local discussions_tree = require("gitlab.actions.discussions.tree")
 local draft_notes = require("gitlab.actions.draft_notes")
 local signs = require("gitlab.indicators.signs")
 local diagnostics = require("gitlab.indicators.diagnostics")
-local winbar = require("gitlab.actions.discussions.winbar")
 local help = require("gitlab.actions.help")
 local emoji = require("gitlab.emoji")
 
@@ -31,6 +30,10 @@ local M = {
   discussion_tree = nil,
   ---@type NuiTree|nil
   unlinked_discussion_tree = nil,
+  ---@type "discussions"|"notes"|nil
+  current_view_type = nil,
+  ---@type boolean|nil
+  reviewer_follows_discussion = nil,
 }
 
 ---Re-fetches all discussions and re-renders the relevant view
@@ -101,9 +104,12 @@ end
 ---Opens the discussion tree, sets the keybindings. It also
 ---creates the tree for notes (which are not linked to specific lines of code)
 ---@param callback function?
----@param view_type "discussions"|"notes" Defines the view type to select (useful for overriding the default view type when jumping to discussion tree when it's closed).
+---@param view_type "discussions"|"notes"? Defines the view type to select (useful for overriding the default view type when jumping to discussion tree when it's closed).
 M.open = function(callback, view_type)
-  view_type = view_type and view_type or state.settings.discussion_tree.default_view
+  M.current_view_type = view_type or M.current_view_type or state.settings.discussion_tree.default_view
+  if M.reviewer_follows_discussion == nil then
+    M.reviewer_follows_discussion = state.settings.discussion_tree.reviewer_follows_discussion
+  end
   state.DISCUSSION_DATA.discussions = u.ensure_table(state.DISCUSSION_DATA.discussions)
   state.DISCUSSION_DATA.unlinked_discussions = u.ensure_table(state.DISCUSSION_DATA.unlinked_discussions)
   state.DRAFT_NOTES = u.ensure_table(state.DRAFT_NOTES)
@@ -122,9 +128,7 @@ M.open = function(callback, view_type)
   M.split_visible = true
   split:mount()
 
-  -- Initialize winbar module with data from buffers
-  winbar.set_buffers(M.linked_bufnr, M.unlinked_bufnr)
-  winbar.switch_view_type(view_type)
+  M.switch_view_type(M.current_view_type)
 
   local current_window = vim.api.nvim_get_current_win() -- Save user's current window in case they switched while content was loading
   vim.api.nvim_set_current_win(M.split.winid)
@@ -134,7 +138,7 @@ M.open = function(callback, view_type)
   M.rebuild_unlinked_discussion_tree()
 
   -- Set default buffer
-  local default_buffer = winbar.bufnr_map[view_type]
+  local default_buffer = M.current_view_type == "discussions" and M.linked_bufnr or M.unlinked_bufnr
   vim.api.nvim_set_current_buf(default_buffer)
   common.switch_can_edit_bufs(false, M.linked_bufnr, M.unlinked_bufnr)
 
@@ -181,7 +185,7 @@ M.move_to_discussion_tree = function()
       end
       M.discussion_tree:render()
       vim.api.nvim_set_current_win(M.split.winid)
-      winbar.switch_view_type("discussions")
+      M.switch_view_type("discussions")
       vim.api.nvim_win_set_cursor(M.split.winid, { line_number, 0 })
     end
 
@@ -422,7 +426,7 @@ end
 ---Rebuilds the discussion tree, which contains all comments and draft comments
 ---linked to specific places in the code.
 M.rebuild_discussion_tree = function()
-  if M.linked_bufnr == nil then
+  if not M.split_visible or M.linked_bufnr == nil then
     return
   end
 
@@ -461,7 +465,7 @@ end
 
 ---Rebuilds the unlinked discussion tree, which contains all notes and draft notes.
 M.rebuild_unlinked_discussion_tree = function()
-  if M.unlinked_bufnr == nil then
+  if not M.split_visible or M.unlinked_bufnr == nil then
     return
   end
 
@@ -724,7 +728,7 @@ M.set_tree_keymaps = function(tree, bufnr, unlinked)
 
   if keymaps.discussion_tree.switch_view then
     vim.keymap.set("n", keymaps.discussion_tree.switch_view, function()
-      winbar.switch_view_type()
+      M.switch_view_type()
     end, {
       buffer = bufnr,
       desc = "Change view type between discussions and notes",
@@ -831,6 +835,22 @@ M.set_tree_keymaps = function(tree, bufnr, unlinked)
     })
   end
 
+  if keymaps.discussion_tree.toggle_reviewer_follows_discussion then
+    vim.keymap.set("n", keymaps.discussion_tree.toggle_reviewer_follows_discussion, function()
+      if M.reviewer_follows_discussion then
+        M.reviewer_follows_discussion = false
+        u.notify("Don't follow discussion")
+      else
+        M.reviewer_follows_discussion = true
+        u.notify("Follow discussion")
+      end
+    end, {
+      buffer = bufnr,
+      desc = "Toggle reviewer follow node",
+      nowait = keymaps.discussion_tree.toggle_reviewer_follows_discussion_nowait,
+    })
+  end
+
   emoji.init_popup(tree, bufnr)
 end
 
@@ -857,7 +877,7 @@ M.toggle_sort_method = function()
   else
     state.settings.discussion_tree.sort_by = "original_comment"
   end
-  winbar.update_winbar()
+  require("gitlab.actions.discussions.winbar").update_winbar()
   M.rebuild_view(false, true)
 end
 
@@ -879,6 +899,32 @@ M.is_draft_note = function(tree)
   end
   local root_node = common.get_root_node(tree, current_node)
   return root_node ~= nil and root_node.is_draft
+end
+
+---Toggles the current view type (or sets it to `override`) and then updates the view.
+---@param override "discussions"|"notes"|nil Defines the view type to select.
+M.switch_view_type = function(override)
+
+  if not M.split or not M.split.winid or not vim.api.nvim_win_is_valid(M.split.winid) then
+    return
+  end
+
+  if override then
+    M.current_view_type = override
+  else
+    if M.current_view_type == "discussions" then
+      M.current_view_type = "notes"
+    elseif M.current_view_type == "notes" then
+      M.current_view_type = "discussions"
+    end
+  end
+
+  if M.current_view_type == "discussions" then
+    vim.api.nvim_win_set_buf(M.split.winid, M.linked_bufnr)
+  else
+    vim.api.nvim_win_set_buf(M.split.winid, M.unlinked_bufnr)
+  end
+  require("gitlab.actions.discussions.winbar").update_winbar()
 end
 
 return M

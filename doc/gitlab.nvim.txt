@@ -220,6 +220,7 @@ you call this function with no values the defaults will be used:
           toggle_node = "t", -- Open or close the discussion
           toggle_all_discussions = "T", -- Open or close separately both resolved and unresolved discussions
           toggle_resolved_discussions = "R", -- Open or close all resolved discussions
+          toggle_reviewer_follows_discussion = "F", -- Toggle whether the reviewer follows focus when jumping over the discussion tree nodes
           toggle_unresolved_discussions = "U", -- Open or close all unresolved discussions
           refresh_data = "<C-R>", -- Refresh the data in the view by hitting Gitlab's APIs again
           next_diffview_entry = "<Tab>", -- Open diff for the next file

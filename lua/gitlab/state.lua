@@ -122,6 +122,7 @@ M.settings = {
       toggle_node = "t",
       toggle_all_discussions = "T",
       toggle_resolved_discussions = "R",
+      toggle_reviewer_follows_discussion = "F",
       toggle_unresolved_discussions = "U",
       refresh_data = "<C-R>",
       next_diffview_entry = "<Tab>",
@@ -177,6 +178,7 @@ M.settings = {
     tree_type = "simple",
     draft_mode = false,
     relative_date = true,
+    reviewer_follows_discussion = false,
   },
   emojis = {
     formatter = nil,
